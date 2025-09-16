@@ -4,7 +4,7 @@ import os
 import glob
 
 # Your folder path
-folder = r'C:\PS\Sleep-Staging\sleep-edf-database-expanded-1.0.0\sleep-cassette'
+folder = r'C:\PS\Sleep-Staging\sleep-edf-database-expanded-1.0.0\sleep-telemetry'
 output_folder = os.path.join(folder, "processed")
 os.makedirs(output_folder, exist_ok=True)
 
@@ -29,18 +29,35 @@ def preprocess_file(psg_path, hypno_path, output_folder):
     raw.set_annotations(annot, emit_warning=False)
     raw.filter(0.5, 32.0)
     raw.resample(100)
+
+    # Extract events from hypnogram
     events, event_id = mne.events_from_annotations(raw)
     epoch_length = 30
     epochs = mne.Epochs(raw, events, event_id=event_id,
                         tmin=0, tmax=epoch_length-1/raw.info['sfreq'],
                         baseline=None, preload=True)
+
+    # Epoch data
+    clean_epochs = []
+    labels = []
     def reject_criteria(data): return np.any(np.abs(data) > 1000)
-    clean_epochs = np.array([ep for ep in epochs.get_data() if not reject_criteria(ep)])
-    def zscore(epoch): return (epoch - epoch.mean(axis=1, keepdims=True)) / (epoch.std(axis=1, keepdims=True) + 1e-6)
-    norm_epochs = np.array([zscore(ep) for ep in clean_epochs])
+
+    for i, ep in enumerate(epochs.get_data()):
+        if not reject_criteria(ep):
+            # normalize
+            ep = (ep - ep.mean(axis=1, keepdims=True)) / (ep.std(axis=1, keepdims=True) + 1e-6)
+            clean_epochs.append(ep)
+            labels.append(epochs.events[i, -1])  # sleep stage label
+
+    clean_epochs = np.array(clean_epochs)
+    labels = np.array(labels)
+
     base = os.path.splitext(os.path.basename(psg_path))[0]
-    np.save(os.path.join(output_folder, f'{base}_epochs.npy'), norm_epochs)
-    print(f"Processed and saved: {base}")
+    np.save(os.path.join(output_folder, f'{base}_epochs.npy'), clean_epochs)
+    np.save(os.path.join(output_folder, f'{base}_labels.npy'), labels)
+
+    print(f"Processed and saved: {base}, epochs={clean_epochs.shape}, labels={labels.shape}")
+
 
 # Loop and pair files by patient ID (first 6 characters)
 matched = 0
