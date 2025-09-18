@@ -1,187 +1,144 @@
 import os
 import numpy as np
-from torch.utils.data import Dataset
-import torch
-
-class SleepDataset(Dataset):
-    def __init__(self, data_dir, transform=None):
-        self.data_dir = data_dir
-        self.transform = transform
-        self.samples = []
-
-        # collect all pairs *_epochs.npy + *_labels.npy
-        for fname in os.listdir(data_dir):
-            if fname.endswith("_epochs.npy"):
-                base = fname.replace("_epochs.npy", "")
-                epoch_path = os.path.join(data_dir, f"{base}_epochs.npy")
-                label_path = os.path.join(data_dir, f"{base}_labels.npy")
-
-                if os.path.exists(label_path):
-                    self.samples.append((epoch_path, label_path))
-
-        print(f"Found {len(self.samples)} files with epoch/label pairs.")
-
-    def __len__(self):
-        return len(self.samples)
-
-    def __getitem__(self, idx):
-        epoch_path, label_path = self.samples[idx]
-
-        # load data
-        X = np.load(epoch_path)  # shape (n_epochs, n_channels, n_times)
-        y = np.load(label_path)  # shape (n_epochs,)
-
-        # map labels into 5 classes
-        y = self.map_labels(y)
-
-        # drop any invalid labels (movement/unscored)
-        valid_idx = np.isin(y, [0, 1, 2, 3, 4])
-        X, y = X[valid_idx], y[valid_idx]
-
-        # convert to torch tensors
-        X = torch.tensor(X, dtype=torch.float32)  # (n_epochs, n_channels, n_times)
-        y = torch.tensor(y, dtype=torch.long)     # (n_epochs,)
-
-        if self.transform:
-            X = self.transform(X)
-
-        return X, y
-
-    def map_labels(self, labels):
-        mapped = []
-        for l in labels:
-            if l == 6:   # Wake
-                mapped.append(0)
-            elif l == 1: # N1
-                mapped.append(1)
-            elif l == 2: # N2
-                mapped.append(2)
-            elif l in [3, 5]: # N3 + N4
-                mapped.append(3)
-            elif l == 4: # REM
-                mapped.append(4)
-            else: # movement/unscored (7)
-                mapped.append(-1)  # mark invalid
-        return np.array(mapped)
-
-
 import torch
 import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import DataLoader
-import numpy as np
+import torch.nn.functional as F
+import matplotlib.pyplot as plt
+from torch.utils.data import Dataset, DataLoader
 
-# ===================== #
-# MobileNet1D Backbone
-# ===================== #
-class DepthwiseSeparableConv(nn.Module):
-    def __init__(self, in_ch, out_ch, stride=1):
+# ----------------------------
+# Dataset Loader
+# ----------------------------
+class SleepDataset(Dataset):
+    def __init__(self, data_folder):
+        self.epochs, self.labels = [], []
+        for f in os.listdir(data_folder):
+            if f.endswith("_epochs.npy"):
+                base = f.replace("_epochs.npy", "")
+                X = np.load(os.path.join(data_folder, f))
+                y = np.load(os.path.join(data_folder, base + "_labels.npy"))
+                self.epochs.append(X)
+                self.labels.append(y)
+        self.epochs = np.concatenate(self.epochs, axis=0)
+        self.labels = np.concatenate(self.labels, axis=0)
+        print(f"Loaded dataset: {self.epochs.shape}, labels: {self.labels.shape}")
+
+    def __len__(self):
+        return len(self.epochs)
+
+    def __getitem__(self, idx):
+        X = torch.tensor(self.epochs[idx], dtype=torch.float32)
+        y = torch.tensor(self.labels[idx], dtype=torch.long)
+        return X, y
+
+# ----------------------------
+# Transformer Model
+# ----------------------------
+class TransformerModel(nn.Module):
+    def __init__(self, input_dim, num_classes, num_heads=4, num_layers=2, d_ff=128):
         super().__init__()
-        self.depthwise = nn.Conv2d(in_ch, in_ch, kernel_size=3, stride=stride, padding=1, groups=in_ch, bias=False)
-        self.pointwise = nn.Conv2d(in_ch, out_ch, kernel_size=1, bias=False)
-        self.bn = nn.BatchNorm2d(out_ch)
-        self.relu = nn.ReLU(inplace=True)
+        self.embedding = nn.Linear(input_dim, 64)
+        encoder_layer = nn.TransformerEncoderLayer(d_model=64, nhead=num_heads, dim_feedforward=d_ff, dropout=0.1)
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+        self.fc = nn.Linear(64, num_classes)
 
     def forward(self, x):
-        x = self.depthwise(x)
-        x = self.pointwise(x)
-        x = self.bn(x)
-        return self.relu(x)
+        # x: (batch, channels, time)
+        x = x.permute(0, 2, 1)  # (batch, time, channels)
+        x = self.embedding(x)    # (batch, time, 64)
+        x = x.permute(1, 0, 2)   # (time, batch, 64)
+        out = self.transformer_encoder(x)
+        out = out.mean(dim=0)    # (batch, 64)
+        return self.fc(out)
 
-class MobileNet1D(nn.Module):
-    def __init__(self, num_classes=5, in_channels=1):
-        super().__init__()
-        self.features = nn.Sequential(
-            nn.Conv2d(in_channels, 32, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.BatchNorm2d(32),
-            nn.ReLU(inplace=True),
-            DepthwiseSeparableConv(32, 64),
-            DepthwiseSeparableConv(64, 128, stride=2),
-            DepthwiseSeparableConv(128, 128),
-            DepthwiseSeparableConv(128, 256, stride=2),
-            DepthwiseSeparableConv(256, 256),
-            DepthwiseSeparableConv(256, 512, stride=2),
-        )
-        self.global_pool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(512, num_classes)
-
-    def forward(self, x):
-        x = self.features(x)
-        x = self.global_pool(x)
-        x = torch.flatten(x, 1)
-        return self.fc(x)
-
-# ===================== #
-# Training Setup
-# ===================== #
-def collate_fn(batch):
-    X_list, y_list = [], []
-    for X, y in batch:
-        X_list.append(X)  # (n_epochs, 7, 3000)
-        y_list.append(y)  # (n_epochs,)
-    X = torch.cat(X_list, dim=0)  # all epochs
-    y = torch.cat(y_list, dim=0)
-    return X, y
-
-def train_model(train_loader, test_loader, num_epochs=10, lr=1e-3, device="cuda"):
-    model = MobileNet1D(num_classes=5).to(device)
+# ----------------------------
+# Training Loop
+# ----------------------------
+def train_model(model, train_loader, val_loader, num_epochs=5, lr=1e-3):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
+    opt = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=lr)
 
     for epoch in range(num_epochs):
-        # ---- Training ----
         model.train()
-        total_loss, correct, total = 0, 0, 0
+        total_loss = 0
         for X, y in train_loader:
             X, y = X.to(device), y.to(device)
-
-            # reshape: (batch, channels=1, 7, 3000)
-            X = X.unsqueeze(1)
-
-            optimizer.zero_grad()
-            outputs = model(X)
-            loss = criterion(outputs, y)
+            opt.zero_grad()
+            preds = model(X)
+            loss = criterion(preds, y)
             loss.backward()
-            optimizer.step()
+            opt.step()
+            total_loss += loss.item()
+        print(f"Epoch {epoch+1}/{num_epochs} - Train Loss: {total_loss/len(train_loader):.4f}")
 
-            total_loss += loss.item() * y.size(0)
-            _, preds = torch.max(outputs, 1)
-            correct += (preds == y).sum().item()
-            total += y.size(0)
-
-        train_acc = correct / total
-        avg_loss = total_loss / total
-
-        # ---- Evaluation ----
+        # Validation
         model.eval()
         correct, total = 0, 0
         with torch.no_grad():
-            for X, y in test_loader:
+            for X, y in val_loader:
                 X, y = X.to(device), y.to(device)
-                X = X.unsqueeze(1)
-                outputs = model(X)
-                _, preds = torch.max(outputs, 1)
-                correct += (preds == y).sum().item()
+                preds = model(X)
+                pred_labels = preds.argmax(dim=1)
+                correct += (pred_labels == y).sum().item()
                 total += y.size(0)
-        test_acc = correct / total
-
-        print(f"Epoch {epoch+1}/{num_epochs} | Loss: {avg_loss:.4f} | Train Acc: {train_acc:.4f} | Test Acc: {test_acc:.4f}")
-
+        acc = correct / total
+        print(f"Validation Accuracy: {acc:.4f}")
     return model
 
+# ----------------------------
+# Heatmap Explainability
+# ----------------------------
+def plot_attention_heatmap(model, sample, class_names=None):
+    model.eval()
+    with torch.no_grad():
+        sample = sample.unsqueeze(0)  # (1, channels, time)
+        emb = model.embedding(sample.permute(0, 2, 1))
+        emb = emb.permute(1, 0, 2)  # (time, batch, d_model)
 
-from torch.utils.data import DataLoader
+        # Pass through transformer encoder layer by layer and capture attention
+        attn_weights_all = []
+        for layer in model.transformer_encoder.layers:
+            src = emb
+            attn_output, attn_weights = layer.self_attn(src, src, src, need_weights=True, average_attn_weights=False)
+            emb = layer.linear2(layer.dropout(layer.activation(layer.linear1(attn_output)))) + src
+            attn_weights_all.append(attn_weights[0].mean(0).cpu().numpy())
 
-# Load datasets
-train_dataset = SleepDataset(r"sleep-edf-database-expanded-1.0.0\sleep-cassette\processed")
-test_dataset = SleepDataset(r"sleep-edf-database-expanded-1.0.0\sleep-telemetry\processed")
+        # Plot the last layer attention heatmap
+        attn_map = attn_weights_all[-1]
+        plt.figure(figsize=(6, 5))
+        plt.imshow(attn_map, cmap="viridis")
+        plt.colorbar()
+        plt.title("Attention Heatmap (last layer)")
+        plt.xlabel("Time steps")
+        plt.ylabel("Time steps")
+        plt.show()
 
-train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, collate_fn=collate_fn)
-test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, collate_fn=collate_fn)
+# ----------------------------
+# Run Example
+# ----------------------------
+if __name__ == "__main__":
+    data_folder = r"sleep-edf-database-expanded-1.0.0/sleep-cassette/processed"
+    dataset = SleepDataset(data_folder)
 
-# Train
-device = "cuda" if torch.cuda.is_available() else "cpu"
-model = train_model(train_loader, test_loader, num_epochs=20, lr=1e-3, device=device)
+    # Train/val split
+    n = len(dataset)
+    idx = np.arange(n)
+    np.random.shuffle(idx)
+    split = int(0.8 * n)
+    train_idx, val_idx = idx[:split], idx[split:]
+    train_loader = DataLoader(torch.utils.data.Subset(dataset, train_idx), batch_size=16, shuffle=True)
+    val_loader = DataLoader(torch.utils.data.Subset(dataset, val_idx), batch_size=16, shuffle=False)
 
-# Save model
-torch.save(model.state_dict(), "mobilenet1d_sleep.pth")
+    # Model init
+    input_dim = dataset[0][0].shape[0]  # channels (EEG + age + sex)
+    num_classes = len(np.unique(dataset.labels))  # should be 7
+    model = TransformerModel(input_dim=input_dim, num_classes=num_classes)
+
+    # Train
+    model = train_model(model, train_loader, val_loader, num_epochs=5)
+
+    # Pick one sample for explainability
+    sample, label = dataset[0]
+    plot_attention_heatmap(model, sample)
