@@ -32,7 +32,7 @@ class SleepTransformer(nn.Module):
     def __init__(self, input_dim, num_heads, num_layers, hidden_dim, num_classes):
         super(SleepTransformer, self).__init__()
         self.embedding = nn.Linear(input_dim, hidden_dim)
-
+    
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=hidden_dim,
             nhead=num_heads,
