@@ -15,7 +15,10 @@ stage_mapping = {
     'Sleep stage ?': 'Unscored'
 }
 
-class_seconds = defaultdict(float)
+window_size = 30  # epoch length in seconds
+
+full_segments = defaultdict(int)
+leftover_seconds = defaultdict(float)
 
 def find_annotation_file_wildcard(psg_filename):
     base = psg_filename[:6]
@@ -30,31 +33,35 @@ for psg_file in os.listdir(folder_path):
         psg_path = os.path.join(folder_path, psg_file)
         hyp_path = find_annotation_file_wildcard(psg_file)
         if not hyp_path:
-            print(f"Warning: No annotation file found for {psg_file}")
+            print(f"Warning: No annotation file found for {psg_file}, skipping.")
             continue
 
-        raw = mne.io.read_raw_edf(psg_path, preload=False, verbose=False)
         annotations = mne.read_annotations(hyp_path)
-        raw.set_annotations(annotations)
 
-        for desc, dur in zip(annotations.description, annotations.duration):
+        for desc, duration in zip(annotations.description, annotations.duration):
             stage = stage_mapping.get(desc, 'Unscored')
-            class_seconds[stage] += dur//30
+            full_count = int(duration // window_size)
+            leftover = duration % window_size
+            full_segments[stage] += full_count
+            leftover_seconds[stage] += leftover
 
-print("Class distribution (epochs):")
-for stage, seconds in class_seconds.items():
-    print(f"{stage}: {seconds:.2f}")
-stage, seconds = zip(*class_seconds.items())
+print("Aggregated sleep stage segmentation report across all records:")
+for stage in full_segments:
+    print(f"{stage}: Full 30s segments = {full_segments[stage]}, Leftover seconds = {leftover_seconds[stage]:.2f}")
+
 
 import matplotlib.pyplot as plt
 
+stages, seconds = zip(*full_segments.items())
+
+# Create bar chart
 plt.figure(figsize=(10, 6))
-bars = plt.bar(stage, seconds, color='skyblue')
+bars = plt.bar(stages, seconds, color='skyblue')
 
 # Add labels and title
 plt.xlabel('Sleep Stage')
-plt.ylabel('Duration (epochs)')
-plt.title('Sleep Stage segments Distribution')
+plt.ylabel('Segment Count (30s each)')
+plt.title('Sleep Stage segment Distribution')
 
 # Display the exact seconds on top of each bar
 for bar in bars:

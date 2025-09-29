@@ -15,8 +15,6 @@ stage_mapping = {
     'Sleep stage ?': 'Unscored'
 }
 
-class_seconds = defaultdict(float)
-
 def find_annotation_file_wildcard(psg_filename):
     base = psg_filename[:6]
     pattern = re.compile(rf'{base}..-Hypnogram.edf')
@@ -24,6 +22,9 @@ def find_annotation_file_wildcard(psg_filename):
         if pattern.fullmatch(f):
             return os.path.join(folder_path, f)
     return None
+
+# Dictionary to count number of episodes per stage across all files
+episode_counts = defaultdict(int)
 
 for psg_file in os.listdir(folder_path):
     if psg_file.endswith('-PSG.edf'):
@@ -33,18 +34,23 @@ for psg_file in os.listdir(folder_path):
             print(f"Warning: No annotation file found for {psg_file}")
             continue
 
-        raw = mne.io.read_raw_edf(psg_path, preload=False, verbose=False)
         annotations = mne.read_annotations(hyp_path)
-        raw.set_annotations(annotations)
+        prev_stage = None
 
-        for desc, dur in zip(annotations.description, annotations.duration):
+        # Iterate over annotation descriptions sequentially
+        for desc in annotations.description:
             stage = stage_mapping.get(desc, 'Unscored')
-            class_seconds[stage] += dur//30
 
-print("Class distribution (epochs):")
-for stage, seconds in class_seconds.items():
-    print(f"{stage}: {seconds:.2f}")
-stage, seconds = zip(*class_seconds.items())
+            # Count a new episode only if current stage differs from previous
+            if stage != prev_stage:
+                episode_counts[stage] += 1  
+                prev_stage = stage
+
+print("Number of stage episodes in the dataset:")
+for stage, count in episode_counts.items():
+    print(f"{stage}: {count}")
+
+stage, seconds = zip(*episode_counts.items())
 
 import matplotlib.pyplot as plt
 
@@ -53,10 +59,9 @@ bars = plt.bar(stage, seconds, color='skyblue')
 
 # Add labels and title
 plt.xlabel('Sleep Stage')
-plt.ylabel('Duration (epochs)')
-plt.title('Sleep Stage segments Distribution')
+plt.ylabel('Episode Count')
+plt.title('Sleep Stage Episode Distribution')
 
-# Display the exact seconds on top of each bar
 for bar in bars:
     height = bar.get_height()
     plt.text(bar.get_x() + bar.get_width()/2, height, f'{int(height):,}', 
