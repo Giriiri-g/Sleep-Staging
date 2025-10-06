@@ -20,7 +20,11 @@ except Exception as e:
 print("Channels:", raw.ch_names)
 print("Bad channels:", raw.info['bads'])
 
-# Visualize a 60-second segment starting at 0 seconds
-raw.plot(start=0, duration=60, block=True)
+# # Visualize a 60-second segment starting at 0 seconds
+# raw.plot(start=0, duration=60, block=True)
 
-input("Press Enter to exit...")  # Ensures the window stays open if running as a script
+# input("Press Enter to exit...")  # Ensures the window stays open if running as a script
+
+
+for i, j, k in zip(raw.annotations.description, raw.annotations.duration, raw.annotations.onset):
+    print(i, j, k)
