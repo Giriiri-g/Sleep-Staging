@@ -48,17 +48,29 @@ class LazyPSGDataset(Dataset):
                 self.sfreq_cache[psg_file] = sfreq
 
                 annotations = mne.read_annotations(hyp_path)
+                
+                # Get total number of samples in the file
+                raw_temp = mne.io.read_raw_edf(psg_path, preload=False, verbose=False)
+                total_samples = raw_temp.n_times
+                del raw_temp
 
                 for desc, onset, duration in zip(annotations.description, annotations.onset, annotations.duration):
                     label = self.stage_mapping.get(desc, 6)
                     full_epochs = int(duration // self.window_size)
-                    epoch_samples = self.window_size * sfreq
+                    epoch_samples = int(self.window_size * sfreq)
                     start_sample = int(onset * sfreq)
 
                     for i in range(full_epochs):
                         epoch_start = start_sample + i * epoch_samples
-                        # Store tuple for lazy loading
-                        self.index_map.append((psg_file, epoch_start, label))
+                        epoch_end = epoch_start + epoch_samples
+                        
+                        # Only add epoch if it fits within the data
+                        if epoch_end <= total_samples:
+                            # Store tuple for lazy loading
+                            self.index_map.append((psg_file, epoch_start, label))
+                        else:
+                            # Skip epochs that extend beyond data
+                            break
 
     def __len__(self):
         return len(self.index_map)
@@ -67,15 +79,41 @@ class LazyPSGDataset(Dataset):
         psg_file, start_sample, label = self.index_map[idx]
         psg_path = os.path.join(self.folder_path, psg_file)
         sfreq = self.sfreq_cache[psg_file]
-        epoch_samples = self.window_size * sfreq
+        epoch_samples = int(self.window_size * sfreq)
 
         # Load raw data for this file but only pick needed samples
-        raw = mne.io.read_raw_edf(psg_path, preload=False, verbose=False)
-
-        data, times = raw[:, start_sample:start_sample+epoch_samples]
-        data_tensor = torch.tensor(data, dtype=torch.float32)
-
-        return data_tensor, label
+        try:
+            raw = mne.io.read_raw_edf(psg_path, preload=False, verbose=False)
+            
+            # Check if we have enough samples
+            if start_sample + epoch_samples > raw.n_times:
+                # Pad with zeros if necessary (shouldn't happen with proper indexing)
+                data, times = raw[:, start_sample:]
+                padding_size = epoch_samples - data.shape[1]
+                if padding_size > 0:
+                    padding = torch.zeros((data.shape[0], padding_size), dtype=torch.float32)
+                    data = torch.cat([torch.tensor(data, dtype=torch.float32), padding], dim=1)
+                else:
+                    data = torch.tensor(data, dtype=torch.float32)
+            else:
+                data, times = raw[:, start_sample:start_sample+epoch_samples]
+                data = torch.tensor(data, dtype=torch.float32)
+            
+            # Ensure correct shape
+            if data.shape[1] != epoch_samples:
+                # Resize if needed (shouldn't happen)
+                if data.shape[1] < epoch_samples:
+                    padding = torch.zeros((data.shape[0], epoch_samples - data.shape[1]), dtype=torch.float32)
+                    data = torch.cat([data, padding], dim=1)
+                else:
+                    data = data[:, :epoch_samples]
+            
+            return data, label
+        except Exception as e:
+            # If there's an error, return zeros (shouldn't happen with proper indexing)
+            print(f"Error loading {psg_file} at sample {start_sample}: {e}")
+            data = torch.zeros((7, epoch_samples), dtype=torch.float32)
+            return data, label
 
 
 if __name__ == '__main__':
