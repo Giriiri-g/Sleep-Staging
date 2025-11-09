@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hypnosia - Personal Sleep Analyst</title>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Manrope', sans-serif;
+            background: #101322;
+            color: #ffffff;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+            position: relative;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: #111422;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: margin-left 0.3s ease;
+            position: relative;
+            z-index: 10;
+        }
+
+        .sidebar.collapsed {
+            margin-left: -280px;
+        }
+
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .logo {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .logo-text h1 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .logo-text p {
+            font-size: 13px;
+            color: #929bc9;
+        }
+
+        .chat-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            overflow-y: auto;
+            max-height: calc(100vh - 200px);
+        }
+
+        .chat-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+            text-decoration: none;
+            color: white;
+        }
+
+        .chat-item:hover {
+            background: rgba(35, 41, 72, 0.5);
+        }
+
+        .chat-item.active {
+            background: #232948;
+        }
+
+        .chat-item span {
+            font-size: 20px;
+        }
+
+        .chat-item p {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .new-chat-btn {
+            width: 100%;
+            padding: 12px;
+            background: #1132d4;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .new-chat-btn:hover {
+            background: #0d28a8;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #0d0f1a;
+        }
+
+        /* Header */
+        .header {
+            height: 56px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            gap: 12px;
+        }
+
+        .menu-btn {
+            background: none;
+            border: none;
+            color: #929bc9;
+            cursor: pointer;
+            padding: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .menu-btn:hover {
+            color: white;
+        }
+
+        .header h2 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        /* Chat Area */
+        .chat-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .welcome-card {
+            background: rgba(17, 20, 34, 0.5);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .welcome-card h3 {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .welcome-card p {
+            color: #929bc9;
+            line-height: 1.6;
+            margin-bottom: 8px;
+        }
+
+        .upload-area {
+            border: 2px dashed #323b67;
+            border-radius: 12px;
+            padding: 48px 24px;
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .upload-area h4 {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .upload-area p {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+
+        .upload-btn {
+            padding: 12px 24px;
+            background: #232948;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .upload-btn:hover {
+            background: #2d3558;
+        }
+
+        .upload-btn input {
+            display: none;
+        }
+
+        .messages {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .message {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .message.user {
+            flex-direction: row-reverse;
+        }
+
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            flex-shrink: 0;
+        }
+
+        .message.user .message-avatar {
+            background: #1132d4;
+        }
+
+        .message-content {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            max-width: 70%;
+        }
+
+        .message.user .message-content {
+            align-items: flex-end;
+        }
+
+        .message-label {
+            font-size: 12px;
+            color: #929bc9;
+            margin-bottom: 4px;
+        }
+
+        .message-text {
+            background: #232948;
+            padding: 12px 16px;
+            border-radius: 8px;
+            line-height: 1.6;
+            display: inline-block;
+            width: fit-content;
+            max-width: 100%;
+            word-wrap: break-word;
+        }
+
+        .message.user .message-text {
+            background: #1132d4;
+        }
+
+        /* Chat Input */
+        .chat-input-area {
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 20px 24px;
+        }
+
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .chat-input {
+            width: 100%;
+            padding: 12px 48px 12px 16px;
+            background: #232948;
+            border: 1px solid #323b67;
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            font-family: 'Manrope', sans-serif;
+        }
+
+        .chat-input:focus {
+            outline: none;
+            border-color: #1132d4;
+        }
+
+        .chat-input::placeholder {
+            color: #929bc9;
+        }
+
+        .send-btn {
+            position: absolute;
+            right: 12px;
+            background: none;
+            border: none;
+            color: #929bc9;
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+        }
+
+        .send-btn:hover {
+            color: #1132d4;
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                position: absolute;
+                left: 0;
+                top: 0;
+                height: 100vh;
+                z-index: 100;
+            }
+
+            .sidebar:not(.collapsed) {
+                box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div>
+                <div class="sidebar-header">
+                    <div class="logo"></div>
+                    <div class="logo-text">
+                        <h1>Hypnosia</h1>
+                        <p>Chat History</p>
+                    </div>
+                </div>
+                <div class="chat-list">
+                    <div class="chat-item active">
+                        <span class="material-symbols-outlined">chat</span>
+                        <p>Sleep Analysis - 28/05/24</p>
+                    </div>
+                    <div class="chat-item">
+                        <span class="material-symbols-outlined">chat_bubble</span>
+                        <p>Sleep Analysis - 25/05/24</p>
+                    </div>
+                    <div class="chat-item">
+                        <span class="material-symbols-outlined">chat_bubble</span>
+                        <p>Sleep Analysis - 22/05/24</p>
+                    </div>
+                    <div class="chat-item">
+                        <span class="material-symbols-outlined">chat_bubble</span>
+                        <p>Sleep Analysis - 19/05/24</p>
+                    </div>
+                </div>
+            </div>
+            <button class="new-chat-btn">New Chat</button>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <button class="menu-btn" id="menuBtn">
+                    <span class="material-symbols-outlined">menu</span>
+                </button>
+                <h2>Sleep Analysis - 28/05/24</h2>
+            </header>
+
+            <!-- Chat Area -->
+            <div class="chat-area">
+                <div class="welcome-card">
+                    <h3>Welcome to your Personal Sleep Analyst</h3>
+                    <p>To get started, upload your Polysomnography (PSG) data file. We support .edf and .edf+ formats. After uploading, I can analyze your sleep stages and provide personalized insights.</p>
+                    <p>You can ask me questions like 'What is PSG data?' or 'How can you help improve my sleep?' at any time.</p>
+                </div>
+
+                <div class="upload-area">
+                    <h4>Upload your PSG data file</h4>
+                    <p>Drag & drop your sleep data file here, or click to browse. Supported formats: .edf, .edf+</p>
+                    <label class="upload-btn">
+                        Upload File
+                        <input type="file" accept=".edf,.edf+" id="fileInput">
+                    </label>
+                </div>
+
+                <div class="messages" id="messages">
+                    <div class="message">
+                        <div class="message-avatar"></div>
+                        <div class="message-content">
+                            <div class="message-label">Hypnosia Bot</div>
+                            <div class="message-text">Hello! I'm here to help you understand and improve your sleep. Feel free to ask me anything or upload your sleep data to begin your personalized analysis.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat Input -->
+            <div class="chat-input-area">
+                <div class="input-wrapper">
+                    <input type="text" class="chat-input" placeholder="Ask me anything about your sleep..." id="chatInput">
+                    <button class="send-btn" id="sendBtn">
+                        <span class="material-symbols-outlined">send</span>
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const sidebar = document.getElementById('sidebar');
+        const menuBtn = document.getElementById('menuBtn');
+        const chatInput = document.getElementById('chatInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const messages = document.getElementById('messages');
+        const fileInput = document.getElementById('fileInput');
+
+        // Toggle sidebar
+        menuBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+        });
+
+        // Auto scroll to bottom
+        function scrollToBottom() {
+            const chatArea = document.querySelector('.chat-area');
+            chatArea.scrollTo({
+                top: chatArea.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+
+        // Send message
+        function sendMessage() {
+            const text = chatInput.value.trim();
+            if (!text) return;
+
+            // Add user message
+            const userMsg = document.createElement('div');
+            userMsg.className = 'message user';
+            userMsg.innerHTML = `
+                <div class="message-avatar"></div>
+                <div class="message-content">
+                    <div class="message-label">You</div>
+                    <div class="message-text">${text}</div>
+                </div>
+            `;
+            messages.appendChild(userMsg);
+
+            chatInput.value = '';
+            scrollToBottom();
+
+            // Simulate bot response
+            setTimeout(() => {
+                const botMsg = document.createElement('div');
+                botMsg.className = 'message';
+                botMsg.innerHTML = `
+                    <div class="message-avatar"></div>
+                    <div class="message-content">
+                        <div class="message-label">Hypnosia Bot</div>
+                        <div class="message-text">Thank you for your question! I'm analyzing your query about sleep. Please note that for detailed analysis, uploading your PSG data will help me provide more personalized insights.</div>
+                    </div>
+                `;
+                messages.appendChild(botMsg);
+                scrollToBottom();
+            }, 1000);
+        }
+
+        sendBtn.addEventListener('click', sendMessage);
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        // File upload
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const botMsg = document.createElement('div');
+                botMsg.className = 'message';
+                botMsg.innerHTML = `
+                    <div class="message-avatar"></div>
+                    <div class="message-content">
+                        <div class="message-label">Hypnosia Bot</div>
+                        <div class="message-text">Great! I've received your file "${file.name}". I'm now analyzing your sleep data. This may take a few moments...</div>
+                    </div>
+                `;
+                messages.appendChild(botMsg);
+                scrollToBottom();
+            }
+        });
+    </script>
+</body>
+</html>
