@@ -318,10 +318,15 @@ class Network(nn.Module):
         self.reduce_indices = [num_cells // 3, 2 * num_cells // 3]
         
         # Input and output projections for cells
-        self.input_projections = nn.ModuleList()
+        # We need separate projections for s0 and s1 as they may have different channel counts
+        self.input_projections_s0 = nn.ModuleList()
+        self.input_projections_s1 = nn.ModuleList()
         self.output_projections = nn.ModuleList()
         
-        prev_output_channels = init_channels  # Output from stem
+        # Track channel counts for s0 and s1
+        # Initially both come from stem
+        s0_channels = init_channels
+        s1_channels = init_channels
         
         for i in range(num_cells):
             if i in self.reduce_indices:
@@ -337,42 +342,36 @@ class Network(nn.Module):
             
             self.cells.append(cell)
             
-            # Input projection: map from previous output to cell's expected input
-            # Cell expects input with cell_channels, but previous cell outputs prev_output_channels * num_nodes
-            # For first cell, prev_output_channels is init_channels (from stem)
-            if i == 0:
-                # First cell: stem outputs init_channels, cell expects cell_channels
-                input_proj = nn.Sequential(
-                    nn.Conv1d(prev_output_channels, cell_channels, 1),
-                    nn.BatchNorm1d(cell_channels)
-                ) if prev_output_channels != cell_channels else nn.Identity()
-            else:
-                # Subsequent cells: previous cell outputs prev_output_channels * num_nodes
-                # Current cell expects cell_channels
-                input_proj = nn.Sequential(
-                    nn.Conv1d(prev_output_channels * num_nodes, cell_channels, 1),
+            # Input projections for s0 and s1
+            # Both need to be projected to cell_channels
+            if s0_channels != cell_channels:
+                input_proj_s0 = nn.Sequential(
+                    nn.Conv1d(s0_channels, cell_channels, 1),
                     nn.BatchNorm1d(cell_channels)
                 )
-            self.input_projections.append(input_proj)
+            else:
+                input_proj_s0 = nn.Identity()
+                
+            if s1_channels != cell_channels:
+                input_proj_s1 = nn.Sequential(
+                    nn.Conv1d(s1_channels, cell_channels, 1),
+                    nn.BatchNorm1d(cell_channels)
+                )
+            else:
+                input_proj_s1 = nn.Identity()
+            
+            self.input_projections_s0.append(input_proj_s0)
+            self.input_projections_s1.append(input_proj_s1)
+            
+            # Update channel counts for next iteration
+            # After this cell: s0 = old s1, s1 = cell output
+            s0_channels = s1_channels
+            s1_channels = cell_channels * num_nodes  # Cell outputs concatenated features
             
             # Output projection: map from cell output to next cell's expected input
-            # Cell outputs cell_channels * num_nodes
-            if i < num_cells - 1:
-                # Determine what next cell expects
-                if (i + 1) in self.reduce_indices:
-                    next_cell_channels = cell_channels * 2
-                else:
-                    next_cell_channels = cell_channels
-                
-                # Project to next cell's expected input (will be handled by next cell's input projection)
-                # Actually, we can simplify by always projecting to a fixed size
-                # But for now, let's project to maintain cell_channels for normal cells
-                output_proj = nn.Identity()  # Will be handled by next cell's input projection
-            else:
-                output_proj = nn.Identity()  # Last cell, no projection needed
-            
+            # Cell outputs cell_channels * num_nodes, but projection is handled by next cell's input projection
+            output_proj = nn.Identity()
             self.output_projections.append(output_proj)
-            prev_output_channels = cell_channels
         
         # Global pooling and classifier
         # After last cell, we have channels * num_nodes features (from concatenation)
@@ -405,8 +404,8 @@ class Network(nn.Module):
         
         for i, cell in enumerate(self.cells):
             # Project inputs to match cell's expected channel size
-            s0_proj = self.input_projections[i](s0)
-            s1_proj = self.input_projections[i](s1)
+            s0_proj = self.input_projections_s0[i](s0)
+            s1_proj = self.input_projections_s1[i](s1)
             
             # Cell takes two inputs and outputs concatenated features
             cell_output = cell(s0_proj, s1_proj, alpha[i])
