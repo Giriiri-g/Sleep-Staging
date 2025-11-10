@@ -1,9 +1,17 @@
 import os
 import re
-import mne
+import warnings
 import torch
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
+
+# Suppress MNE warnings and verbose output
+os.environ['MNE_LOGGING_LEVEL'] = 'ERROR'
+warnings.filterwarnings('ignore', category=RuntimeWarning, module='mne')
+warnings.filterwarnings('ignore', category=UserWarning, module='mne')
+
+import mne
+mne.set_log_level('ERROR')
 
 class LazyPSGDataset(Dataset):
     def __init__(self, folder_path, window_size=30):
@@ -43,14 +51,16 @@ class LazyPSGDataset(Dataset):
                     print(f"No annotation file for {psg_file}, skipping.")
                     continue
 
-                raw = mne.io.read_raw_edf(psg_path, preload=False, verbose=False)
-                sfreq = int(raw.info['sfreq'])
-                self.sfreq_cache[psg_file] = sfreq
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    raw = mne.io.read_raw_edf(psg_path, preload=False, verbose=False)
+                    sfreq = int(raw.info['sfreq'])
+                    self.sfreq_cache[psg_file] = sfreq
 
-                annotations = mne.read_annotations(hyp_path)
-                
-                # Get total number of samples in the file
-                raw_temp = mne.io.read_raw_edf(psg_path, preload=False, verbose=False)
+                    annotations = mne.read_annotations(hyp_path)
+                    
+                    # Get total number of samples in the file
+                    raw_temp = mne.io.read_raw_edf(psg_path, preload=False, verbose=False)
                 total_samples = raw_temp.n_times
                 del raw_temp
 
@@ -83,7 +93,9 @@ class LazyPSGDataset(Dataset):
 
         # Load raw data for this file but only pick needed samples
         try:
-            raw = mne.io.read_raw_edf(psg_path, preload=False, verbose=False)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                raw = mne.io.read_raw_edf(psg_path, preload=False, verbose=False)
             
             # Check if we have enough samples
             if start_sample + epoch_samples > raw.n_times:

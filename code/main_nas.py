@@ -10,12 +10,23 @@ import os
 from pathlib import Path
 import json
 from datetime import datetime
+import warnings
+
+# Suppress all warnings at the start
+warnings.filterwarnings('ignore')
+os.environ['MNE_LOGGING_LEVEL'] = 'ERROR'
 
 from nas_search_space import Network, DARTS_OPS, ALL_OPS
 from darts import DARTSTrainer
 from rl_search import RLSearchTrainer, PolicyNetwork, actions_to_architecture
 from nas_evaluator import ArchitectureEvaluator, PerformanceEstimator, print_architecture
 from dataloader import LazyPSGDataset
+from utils import (print_header, print_section, print_info, print_success, 
+                   print_warning, print_error, print_key_value, print_metric,
+                   suppress_warnings)
+
+# Ensure warnings are suppressed
+suppress_warnings()
 
 
 def get_data_loaders(data_path: str, batch_size: int = 32, val_split: float = 0.2,
@@ -33,6 +44,7 @@ def get_data_loaders(data_path: str, batch_size: int = 32, val_split: float = 0.
     Returns:
         train_loader, val_loader, test_loader
     """
+    print_info("Loading dataset...")
     # Load dataset
     dataset = LazyPSGDataset(folder_path=data_path, window_size=30)
     
@@ -61,20 +73,26 @@ def get_data_loaders(data_path: str, batch_size: int = 32, val_split: float = 0.
         num_workers=num_workers, pin_memory=True
     )
     
-    print(f"Dataset sizes: Train={train_size}, Val={val_size}, Test={test_size}")
+    print_section("Dataset Information")
+    print_key_value("Total samples", f"{total_size:,}")
+    print_key_value("Train samples", f"{train_size:,}")
+    print_key_value("Validation samples", f"{val_size:,}")
+    print_key_value("Test samples", f"{test_size:,}")
+    print_key_value("Batch size", batch_size)
     
     return train_loader, val_loader, test_loader
 
 
 def run_darts_search(args):
     """Run DARTS search"""
-    print("=" * 60)
-    print("DARTS: Differentiable Architecture Search")
-    print("=" * 60)
+    print_header("DARTS: Differentiable Architecture Search")
     
     # Device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
+    print_section("Configuration")
+    print_key_value("Device", device)
+    print_key_value("Data path", args.data_path)
+    print_key_value("Strategy", "DARTS")
     
     # Data loaders
     train_loader, val_loader, test_loader = get_data_loaders(
@@ -82,6 +100,7 @@ def run_darts_search(args):
     )
     
     # Create supernet
+    print_info("Creating supernet...")
     model = Network(
         input_channels=args.input_channels,
         input_length=args.input_length,
@@ -92,7 +111,14 @@ def run_darts_search(args):
         search_space=DARTS_OPS
     )
     
-    print(f"Supernet parameters: {sum(p.numel() for p in model.parameters()):,}")
+    num_params = sum(p.numel() for p in model.parameters())
+    print_key_value("Supernet parameters", f"{num_params:,}")
+    
+    # Setup checkpoint directory
+    checkpoint_dir = None
+    if args.save_dir:
+        checkpoint_dir = Path(args.save_dir) / "checkpoints"
+        checkpoint_dir.mkdir(parents=True, exist_ok=True)
     
     # Create DARTS trainer
     trainer = DARTSTrainer(
@@ -105,29 +131,45 @@ def run_darts_search(args):
         w_weight_decay=args.w_weight_decay,
         alpha_lr=args.alpha_lr,
         alpha_weight_decay=args.alpha_weight_decay,
-        unrolled=args.unrolled
+        unrolled=args.unrolled,
+        checkpoint_dir=str(checkpoint_dir) if checkpoint_dir else None
     )
     
+    # Determine checkpoint to resume from
+    resume_from = None
+    if args.resume_from:
+        resume_from = args.resume_from
+    elif checkpoint_dir:
+        # Auto-detect latest checkpoint
+        latest_checkpoint = checkpoint_dir / "checkpoint_latest.pth"
+        if latest_checkpoint.exists():
+            resume_from = str(latest_checkpoint)
+            print_info(f"Found checkpoint: {resume_from}")
+    
     # Train
+    print_section("Training")
     results = trainer.train(
         num_epochs=args.num_epochs,
-        print_freq=args.print_freq
+        print_freq=args.print_freq,
+        resume_from=resume_from,
+        save_freq=args.checkpoint_freq
     )
     
     # Get final architecture
     final_arch = trainer.get_architecture()
-    print("\nFinal Architecture:")
+    print_section("Final Architecture")
     print_architecture(final_arch)
     
     # Evaluate final architecture
-    print("\nEvaluating final architecture...")
+    print_section("Evaluation")
+    print_info("Evaluating final architecture...")
     evaluator = ArchitectureEvaluator(train_loader, val_loader, device, args.num_classes)
     eval_results = evaluator.evaluate(final_arch, num_epochs=args.final_train_epochs, verbose=True,
                                      num_cells=args.num_cells, num_nodes=args.num_nodes)
     
-    print(f"\nFinal Evaluation Results:")
-    print(f"Best Val Accuracy: {eval_results['best_val_acc']:.2f}%")
-    print(f"Final Val Accuracy: {eval_results['final_val_acc']:.2f}%")
+    print_section("Final Results")
+    print_metric("Best Val Accuracy", eval_results['best_val_acc'], "%")
+    print_metric("Final Val Accuracy", eval_results['final_val_acc'], "%")
     
     # Save results
     if args.save_dir:
@@ -147,7 +189,7 @@ def run_darts_search(args):
         # Save model
         torch.save(model.state_dict(), save_dir / "darts_model.pth")
         
-        print(f"\nResults saved to {save_dir}")
+        print_success(f"Results saved to {save_dir}")
     
     return results, final_arch
 
@@ -324,6 +366,10 @@ def main():
     # Save arguments
     parser.add_argument("--save_dir", type=str, default=None,
                        help="Directory to save results (default: None)")
+    parser.add_argument("--resume_from", type=str, default=None,
+                       help="Path to checkpoint file to resume from (default: None)")
+    parser.add_argument("--checkpoint_freq", type=int, default=5,
+                       help="Frequency of checkpoint saving (default: 5 epochs)")
     
     args = parser.parse_args()
     
@@ -332,27 +378,34 @@ def main():
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         args.save_dir = f"nas_results_{args.strategy}_{timestamp}"
     
-    print(f"Save directory: {args.save_dir}")
+    print_header("Neural Architecture Search for Sleep Stage Classification")
+    print_key_value("Save directory", args.save_dir)
+    if args.resume_from:
+        print_key_value("Resume from", args.resume_from)
     
     # Run search
-    if args.strategy == "darts":
-        run_darts_search(args)
-    elif args.strategy == "rl":
-        run_rl_search(args)
-    elif args.strategy == "both":
-        print("Running both DARTS and RL search...")
-        print("\n" + "=" * 60)
-        darts_results, darts_arch = run_darts_search(args)
-        print("\n" + "=" * 60)
-        rl_results, rl_arch = run_rl_search(args)
-        
-        # Compare results
-        print("\n" + "=" * 60)
-        print("Comparison:")
-        print("=" * 60)
-        print(f"DARTS Best Val Acc: {darts_results['best_val_acc']:.2f}%")
-        print(f"RL Best Reward: {rl_results['best_reward']:.2f}")
-        print("=" * 60)
+    try:
+        if args.strategy == "darts":
+            run_darts_search(args)
+        elif args.strategy == "rl":
+            run_rl_search(args)
+        elif args.strategy == "both":
+            print_info("Running both DARTS and RL search...")
+            darts_results, darts_arch = run_darts_search(args)
+            print_section("RL Search")
+            rl_results, rl_arch = run_rl_search(args)
+            
+            # Compare results
+            print_header("Comparison Results")
+            print_metric("DARTS Best Val Acc", darts_results['best_val_acc'], "%")
+            print_metric("RL Best Reward", rl_results['best_reward'], "")
+        print_success("Training completed successfully!")
+    except KeyboardInterrupt:
+        print_warning("Training interrupted by user")
+        print_info("Checkpoint should be available for resume")
+    except Exception as e:
+        print_error(f"Training failed: {str(e)}")
+        raise
 
 
 if __name__ == "__main__":

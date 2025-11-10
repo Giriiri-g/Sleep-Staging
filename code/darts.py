@@ -9,7 +9,9 @@ from torch.utils.data import DataLoader
 from typing import Tuple, Dict, Optional
 import copy
 import numpy as np
+from pathlib import Path
 from nas_search_space import Network, DARTS_OPS
+from utils import print_info, print_success, print_warning, print_progress, print_key_value, print_metric
 
 
 class DARTSTrainer:
@@ -19,7 +21,7 @@ class DARTSTrainer:
                  device: torch.device, w_lr: float = 0.025, w_momentum: float = 0.9,
                  w_weight_decay: float = 3e-4, alpha_lr: float = 3e-4,
                  alpha_weight_decay: float = 1e-3, grad_clip: float = 5.0,
-                 unrolled: bool = False):
+                 unrolled: bool = False, checkpoint_dir: Optional[str] = None):
         """
         Initialize DARTS trainer
         
@@ -42,6 +44,9 @@ class DARTSTrainer:
         self.device = device
         self.unrolled = unrolled
         self.grad_clip = grad_clip
+        self.checkpoint_dir = Path(checkpoint_dir) if checkpoint_dir else None
+        if self.checkpoint_dir:
+            self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
         
         # Optimizer for model weights
         self.w_optimizer = optim.SGD(
@@ -59,13 +64,10 @@ class DARTSTrainer:
             betas=(0.5, 0.999)
         )
         
-        # Learning rate schedulers
-        self.w_scheduler = optim.lr_scheduler.CosineAnnealingLR(
-            self.w_optimizer, T_max=50, eta_min=0.001
-        )
-        self.alpha_scheduler = optim.lr_scheduler.CosineAnnealingLR(
-            self.alpha_optimizer, T_max=50, eta_min=0.0001
-        )
+        # Learning rate schedulers (T_max will be updated in train method)
+        self.w_scheduler = None
+        self.alpha_scheduler = None
+        self.num_epochs = None
         
         # Loss function
         self.criterion = nn.CrossEntropyLoss()
@@ -215,9 +217,10 @@ class DARTSTrainer:
                 train_total += target_train.size(0)
                 train_correct += predicted.eq(target_train).sum().item()
         
-        # Update learning rates
-        self.w_scheduler.step()
-        self.alpha_scheduler.step()
+        # Update learning rates (only if schedulers are initialized)
+        if self.w_scheduler is not None:
+            self.w_scheduler.step()
+            self.alpha_scheduler.step()
         
         return {
             'train_loss': train_loss / len(self.train_loader),
@@ -257,45 +260,133 @@ class DARTSTrainer:
             arch = self.model.discretize(alpha)
         return arch
     
-    def train(self, num_epochs: int, print_freq: int = 10) -> Dict:
+    def save_checkpoint(self, epoch: int, history: Dict, best_val_acc: float, 
+                       best_arch: Dict, checkpoint_name: str = "checkpoint_latest.pth"):
+        """Save training checkpoint"""
+        if self.checkpoint_dir is None:
+            return
+        
+        checkpoint_path = self.checkpoint_dir / checkpoint_name
+        checkpoint = {
+            'epoch': epoch,
+            'model_state_dict': self.model.state_dict(),
+            'w_optimizer_state_dict': self.w_optimizer.state_dict(),
+            'alpha_optimizer_state_dict': self.alpha_optimizer.state_dict(),
+            'arch_params': self.model.arch_params.data,
+            'history': history,
+            'best_val_acc': best_val_acc,
+            'best_architecture': best_arch,
+        }
+        # Only save scheduler states if they exist
+        if self.w_scheduler is not None:
+            checkpoint['w_scheduler_state_dict'] = self.w_scheduler.state_dict()
+            checkpoint['alpha_scheduler_state_dict'] = self.alpha_scheduler.state_dict()
+        
+        torch.save(checkpoint, checkpoint_path)
+        print_success(f"Checkpoint saved: {checkpoint_path}")
+    
+    def load_checkpoint(self, checkpoint_path: str) -> Dict:
+        """Load training checkpoint"""
+        checkpoint = torch.load(checkpoint_path, map_location=self.device)
+        
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.w_optimizer.load_state_dict(checkpoint['w_optimizer_state_dict'])
+        self.alpha_optimizer.load_state_dict(checkpoint['alpha_optimizer_state_dict'])
+        self.model._arch_params.data = checkpoint['arch_params']
+        
+        # Only load scheduler states if they exist in checkpoint and schedulers are initialized
+        if 'w_scheduler_state_dict' in checkpoint and self.w_scheduler is not None:
+            self.w_scheduler.load_state_dict(checkpoint['w_scheduler_state_dict'])
+            self.alpha_scheduler.load_state_dict(checkpoint['alpha_scheduler_state_dict'])
+        
+        print_success(f"Checkpoint loaded: {checkpoint_path}")
+        return checkpoint
+    
+    def train(self, num_epochs: int, print_freq: int = 10, 
+             resume_from: Optional[str] = None, save_freq: int = 5) -> Dict:
         """Train DARTS for specified number of epochs"""
+        self.num_epochs = num_epochs
+        
+        # Initialize schedulers if not already done
+        if self.w_scheduler is None:
+            self.w_scheduler = optim.lr_scheduler.CosineAnnealingLR(
+                self.w_optimizer, T_max=num_epochs, eta_min=0.001
+            )
+            self.alpha_scheduler = optim.lr_scheduler.CosineAnnealingLR(
+                self.alpha_optimizer, T_max=num_epochs, eta_min=0.0001
+            )
+        
+        start_epoch = 0
         best_val_acc = 0.0
+        best_arch = None
         history = {
             'train_loss': [], 'train_acc': [],
             'val_loss': [], 'val_acc': []
         }
         
-        for epoch in range(num_epochs):
-            # Train
-            train_metrics = self.train_epoch(epoch)
-            
-            # Validate
-            val_metrics = self.validate()
-            
-            # Update history
-            history['train_loss'].append(train_metrics['train_loss'])
-            history['train_acc'].append(train_metrics['train_acc'])
-            history['val_loss'].append(val_metrics['val_loss'])
-            history['val_acc'].append(val_metrics['val_acc'])
-            
-            # Print progress
-            if (epoch + 1) % print_freq == 0 or epoch == 0:
-                print(f'Epoch [{epoch+1}/{num_epochs}]')
-                print(f'Train Loss: {train_metrics["train_loss"]:.4f}, '
-                      f'Train Acc: {train_metrics["train_acc"]:.2f}%')
-                print(f'Val Loss: {val_metrics["val_loss"]:.4f}, '
-                      f'Val Acc: {val_metrics["val_acc"]:.2f}%')
+        # Load checkpoint if resuming (must initialize schedulers first)
+        if resume_from and Path(resume_from).exists():
+            # Initialize schedulers before loading checkpoint
+            if self.w_scheduler is None:
+                self.w_scheduler = optim.lr_scheduler.CosineAnnealingLR(
+                    self.w_optimizer, T_max=num_epochs, eta_min=0.001
+                )
+                self.alpha_scheduler = optim.lr_scheduler.CosineAnnealingLR(
+                    self.alpha_optimizer, T_max=num_epochs, eta_min=0.0001
+                )
+            checkpoint = self.load_checkpoint(resume_from)
+            start_epoch = checkpoint['epoch'] + 1
+            history = checkpoint['history']
+            best_val_acc = checkpoint['best_val_acc']
+            best_arch = checkpoint['best_architecture']
+            print_info(f"Resuming from epoch {start_epoch}")
+        
+        for epoch in range(start_epoch, num_epochs):
+            try:
+                # Train
+                train_metrics = self.train_epoch(epoch)
                 
-                # Print architecture
-                alpha = self.model.arch_params
-                alpha_softmax = torch.softmax(alpha, dim=-1)
-                print(f'Architecture weights (sample): {alpha_softmax[0, 0, :5].cpu().numpy()}')
-                print('-' * 50)
-            
-            # Save best model
-            if val_metrics['val_acc'] > best_val_acc:
-                best_val_acc = val_metrics['val_acc']
-                best_arch = self.get_architecture()
+                # Validate
+                val_metrics = self.validate()
+                
+                # Update history
+                history['train_loss'].append(train_metrics['train_loss'])
+                history['train_acc'].append(train_metrics['train_acc'])
+                history['val_loss'].append(val_metrics['val_loss'])
+                history['val_acc'].append(val_metrics['val_acc'])
+                
+                # Print progress with colored output
+                if (epoch + 1) % print_freq == 0 or epoch == 0:
+                    print_progress(epoch + 1, num_epochs, {
+                        'Train Loss': train_metrics['train_loss'],
+                        'Train Acc': f"{train_metrics['train_acc']:.2f}%",
+                        'Val Loss': val_metrics['val_loss'],
+                        'Val Acc': f"{val_metrics['val_acc']:.2f}%"
+                    })
+                
+                # Save best model
+                if val_metrics['val_acc'] > best_val_acc:
+                    best_val_acc = val_metrics['val_acc']
+                    best_arch = self.get_architecture()
+                    if self.checkpoint_dir:
+                        self.save_checkpoint(epoch, history, best_val_acc, best_arch, 
+                                           "checkpoint_best.pth")
+                
+                # Save periodic checkpoint
+                if self.checkpoint_dir and (epoch + 1) % save_freq == 0:
+                    self.save_checkpoint(epoch, history, best_val_acc, best_arch)
+                    
+            except Exception as e:
+                print_warning(f"Error at epoch {epoch}: {str(e)}")
+                if self.checkpoint_dir:
+                    self.save_checkpoint(epoch - 1, history, best_val_acc, best_arch, 
+                                       "checkpoint_error.pth")
+                raise
+        
+        # Save final checkpoint
+        if self.checkpoint_dir:
+            self.save_checkpoint(num_epochs - 1, history, best_val_acc, best_arch, 
+                               "checkpoint_final.pth")
         
         return {
             'history': history,
