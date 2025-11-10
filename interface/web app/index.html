@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Hypnosia - Unlock the Science of Your Sleep</title>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+    <style>
+        html{
+            scroll-behavior: smooth;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #E6E6FA;
+            --background-light: #f6f6f8;
+            --background-dark: #0A192F;
+            --background-darker: #061325;
+            --background-dark-accent: #102A4C;
+            --gold: #FFD700;
+        }
+
+        body {
+            font-family: 'Manrope', sans-serif;
+            background-color: var(--background-dark);
+            color: white;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            background-image: 
+                radial-gradient(circle, white 0%, transparent 1px),
+                radial-gradient(circle, white 0%, transparent 1px),
+                radial-gradient(circle, white 0%, transparent 1.5px),
+                radial-gradient(circle, white 0%, transparent 1px),
+                radial-gradient(circle, white 0%, transparent 1px),
+                radial-gradient(circle, white 0%, transparent 2px),
+                radial-gradient(circle, white 0%, transparent 1px),
+                radial-gradient(circle, white 0%, transparent 1.5px),
+                radial-gradient(circle, white 0%, transparent 1px),
+                radial-gradient(circle, white 0%, transparent 1px);
+            background-size: 
+                200px 200px,
+                250px 250px,
+                300px 300px,
+                180px 180px,
+                220px 220px,
+                280px 280px,
+                190px 190px,
+                240px 240px,
+                210px 210px,
+                260px 260px;
+            background-position: 
+                0 0,
+                40px 60px,
+                130px 270px,
+                70px 100px,
+                160px 40px,
+                20px 220px,
+                110px 170px,
+                200px 10px,
+                80px 300px,
+                150px 150px;
+            opacity: 0.7;
+            animation: starBlink 4s ease-in-out infinite, starMove 120s linear infinite;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            background-image: 
+                radial-gradient(circle, rgba(255, 255, 255, 0.9) 0%, transparent 1px),
+                radial-gradient(circle, rgba(255, 255, 255, 0.8) 0%, transparent 1.5px),
+                radial-gradient(circle, rgba(255, 255, 255, 0.9) 0%, transparent 1px),
+                radial-gradient(circle, rgba(255, 255, 255, 0.7) 0%, transparent 1px),
+                radial-gradient(circle, rgba(255, 255, 255, 0.85) 0%, transparent 2px),
+                radial-gradient(circle, rgba(255, 255, 255, 0.75) 0%, transparent 1px),
+                radial-gradient(circle, rgba(255, 255, 255, 0.9) 0%, transparent 1.5px),
+                radial-gradient(circle, rgba(255, 255, 255, 0.8) 0%, transparent 1px);
+            background-size: 
+                220px 220px,
+                270px 270px,
+                195px 195px,
+                245px 245px,
+                290px 290px,
+                205px 205px,
+                235px 235px,
+                260px 260px;
+            background-position: 
+                30px 30px,
+                90px 180px,
+                170px 80px,
+                50px 250px,
+                140px 140px,
+                100px 50px,
+                180px 200px,
+                60px 120px;
+            opacity: 0.6;
+            animation: starBlink 3s ease-in-out infinite reverse, starMove 100s linear infinite reverse;
+        }
+
+        .shooting-star {
+            position: fixed;
+            width: 2px;
+            height: 2px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 0 4px 2px rgba(255, 255, 255, 0.8);
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0;
+        }
+
+        .shooting-star::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 80px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8));
+            transform: translateX(-100%);
+        }
+
+        @keyframes shootingStar {
+            0% {
+                opacity: 0;
+                transform: translate(0, 0) rotate(-45deg);
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                opacity: 0;
+                transform: translate(300px, 300px) rotate(-45deg);
+            }
+        }
+
+        @keyframes starMove {
+            0% {
+                transform: translate(0, 0);
+            }
+            100% {
+                transform: translate(-20px, -20px);
+            }
+        }
+
+        @keyframes starBlink {
+            0%, 100% {
+                opacity: 0.4;
+            }
+            20% {
+                opacity: 0.7;
+            }
+            40% {
+                opacity: 0.5;
+            }
+            60% {
+                opacity: 0.8;
+            }
+            80% {
+                opacity: 0.6;
+            }
+        }gradient(1px 1px at 40% 95%, white, transparent),
+                radial-gradient(3px 3px at 65% 15%, white, transparent),
+                radial-gradient(1px 1px at 5% 45%, white, transparent),
+                radial-gradient(2px 2px at 35% 5%, white, transparent),
+                radial-gradient(2px 2px at 75% 55%, white, transparent),
+                radial-gradient(1px 1px at 55% 85%, white, transparent),
+                radial-gradient(3px 3px at 12% 25%, white, transparent),
+                radial-gradient(1px 1px at 88% 45%, white, transparent),
+                radial-gradient(2px 2px at 30% 65%, white, transparent),
+                radial-gradient(3px 3px at 48% 35%, white, transparent),
+                radial-gradient(1px 1px at 68% 8%, white, transparent),
+                radial-gradient(2px 2px at 22% 92%, white, transparent),
+                radial-gradient(3px 3px at 92% 78%, white, transparent),
+                radial-gradient(1px 1px at 58% 62%, white, transparent),
+                radial-gradient(2px 2px at 8% 15%, white, transparent),
+                radial-gradient(3px 3px at 78% 88%, white, transparent),
+                radial-gradient(1px 1px at 42% 48%, white, transparent),
+                radial-gradient(2px 2px at 17% 72%, white, transparent),
+                radial-gradient(1px 1px at 63% 43%, white, transparent),
+                radial-gradient(3px 3px at 38% 12%, white, transparent),
+                radial-gradient(2px 2px at 82% 67%, white, transparent),
+                radial-gradient(1px 1px at 27% 38%, white, transparent),
+                radial-gradient(2px 2px at 53% 78%, white, transparent),
+                radial-gradient(3px 3px at 7% 82%, white, transparent),
+                radial-gradient(1px 1px at 72% 22%, white, transparent),
+                radial-gradient(2px 2px at 44% 58%, white, transparent),
+                radial-gradient(1px 1px at 97% 52%, white, transparent),
+                radial-gradient(3px 3px at 14% 47%, white, transparent),
+                radial-gradient(2px 2px at 86% 93%, white, transparent),
+                radial-gradient(1px 1px at 51% 3%, white, transparent),
+                radial-gradient(2px 2px at 32% 88%, white, transparent),
+                radial-gradient(3px 3px at 67% 73%, white, transparent);
+            background-size: 100% 100%;
+            background-repeat: no-repeat;
+            opacity: 0.6;
+            animation: blink 2s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% {
+                opacity: 0.3;
+            }
+            25% {
+                opacity: 0.6;
+            }
+            50% {
+                opacity: 0.8;
+            }
+            75% {
+                opacity: 0.5;
+            }
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            width: 100%;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Header */
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            background-color: rgba(10, 25, 47, 0.8);
+            backdrop-filter: blur(8px);
+            padding: 12px 16px;
+        }
+
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 1152px;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            color: var(--primary);
+        }
+
+        .logo {
+            width: 24px;
+            height: 24px;
+        }
+
+        .logo-text {
+            font-size: 20px;
+            font-weight: 700;
+            line-height: 1.2;
+            letter-spacing: -0.015em;
+            color: white;
+        }
+
+        nav {
+            display: none;
+            align-items: center;
+            gap: 32px;
+        }
+
+        nav a {
+            font-size: 14px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.9);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        nav a:hover {
+            color: white;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 84px;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 1.5;
+            letter-spacing: 0.015em;
+            cursor: pointer;
+            border: none;
+            transition: opacity 0.3s;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: var(--background-dark);
+        }
+
+        .btn-gold {
+            background-color: var(--gold);
+            color: var(--background-dark);
+            padding: 12px 20px;
+            font-size: 16px;
+            max-width: 480px;
+        }
+
+        .avatar {
+            display: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAQm7lBR4eKLxhrMe_GeM79j7NhcJwF5A_ivGrstf9L2ztHWVXd85Q7yFvNaAacOBh7VcQHK1RQ8I3c68hkoyHJidKk2q6oBdGzybeTI1IY2F6MNZq4jJjwdAz9b6zqCM9XKLDNDe5mS36IEjmH6GnxIC15pIXalLVey6xDtWl_zW-H9E9aee4qNf5FcZp1DprXdJ0UE2dsrouGkvfdr0KbTVbXL5Ka_NtFvdrLRktDg_-_so9gj9IbX877c3_Mq_6BBaJccCKU-IM");
+        }
+
+        /* Main Content */
+        main {
+            display: flex;
+            flex: 1;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .main-wrapper {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 1152px;
+        }
+
+        /* Hero Section */
+        .hero {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+            padding: 80px 16px;
+            min-height: 60vh;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 36px;
+            font-weight: 900;
+            line-height: 1.2;
+            letter-spacing: -0.033em;
+            color: white;
+        }
+
+        .hero h2 {
+            max-width: 672px;
+            margin: 0 auto;
+            font-size: 16px;
+            font-weight: 400;
+            line-height: 1.5;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        /* Features Section */
+        .features {
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+            background-color: var(--background-darker);
+            padding: 64px 16px;
+        }
+
+        .section-header {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .section-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-badge span {
+            height: 2px;
+            width: 32px;
+            background-color: var(--primary);
+        }
+
+        .section-badge p {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--primary);
+        }
+
+        .section-title {
+            font-size: 32px;
+            font-weight: 700;
+            line-height: 1.2;
+            letter-spacing: -0.015em;
+            color: white;
+        }
+
+        .section-description {
+            max-width: 768px;
+            font-size: 16px;
+            font-weight: 400;
+            line-height: 1.5;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+
+        .feature-card {
+            display: flex;
+            flex: 1;
+            flex-direction: column;
+            gap: 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background-color: var(--background-dark-accent);
+            padding: 24px;
+        }
+
+        .feature-icon {
+            color: var(--primary);
+            font-size: 32px;
+        }
+
+        .feature-title {
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 1.2;
+            color: white;
+        }
+
+        .feature-description {
+            font-size: 14px;
+            font-weight: 400;
+            line-height: 1.5;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        /* Process Section */
+        .process {
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+            padding: 64px 16px;
+        }
+
+        .process-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            text-align: center;
+        }
+
+        .process-grid {
+            position: relative;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 32px;
+        }
+
+        .process-line {
+            display: none;
+            position: absolute;
+            left: 50%;
+            top: 56px;
+            transform: translateX(-50%) translateY(-50%);
+            height: 2px;
+            width: 66.66%;
+            border-top: 2px dashed rgba(255, 255, 255, 0.2);
+        }
+
+        .process-step {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            text-align: center;
+        }
+
+        .process-number {
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            border: 2px solid var(--primary);
+            background-color: var(--background-dark);
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .process-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: white;
+        }
+
+        .process-description {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        /* Divider */
+        .divider {
+            padding: 0 16px;
+        }
+
+        .divider-line {
+            height: 1px;
+            background-image: linear-gradient(to right, transparent, rgba(230, 230, 250, 0.2), transparent);
+        }
+
+        /* Testimonials Section */
+        .testimonials {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 40px;
+            padding: 64px 16px;
+        }
+
+        .testimonial-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 32px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background-color: rgba(255, 255, 255, 0.05);
+            padding: 32px;
+        }
+
+        .testimonial-text {
+            max-width: 768px;
+            text-align: center;
+            font-size: 18px;
+            font-style: italic;
+            line-height: 1.6;
+            color: white;
+        }
+
+        .testimonial-author {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .author-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background-size: cover;
+            background-position: center;
+            background-image: url("indian.png");
+        }
+
+        .author-name {
+            font-weight: 700;
+            color: white;
+        }
+
+        .author-role {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        /* CTA Section */
+        .cta {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 24px;
+            border-radius: 12px 12px 0 0;
+            background-color: var(--background-dark-accent);
+            padding: 64px 16px;
+            text-align: center;
+        }
+
+        .cta h2 {
+            font-size: 32px;
+            font-weight: 700;
+            line-height: 1.2;
+            letter-spacing: -0.015em;
+            color: white;
+        }
+
+        .cta p {
+            max-width: 672px;
+            font-size: 16px;
+            font-weight: 400;
+            line-height: 1.5;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        /* Footer */
+        footer {
+            display: flex;
+            justify-content: center;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            background-color: var(--background-dark);
+            padding: 32px 16px;
+        }
+
+        .footer-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 24px;
+            width: 100%;
+            max-width: 1152px;
+            text-align: center;
+        }
+
+        .footer-brand p:first-child {
+            font-size: 16px;
+            font-weight: 700;
+            color: white;
+        }
+
+        .footer-brand p:last-child {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 24px;
+            font-size: 14px;
+        }
+
+        .footer-links a {
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .footer-links a:hover {
+            color: white;
+        }
+
+        /* Responsive */
+        @media (min-width: 640px) {
+            header {
+                padding: 12px 32px;
+            }
+
+            .avatar {
+                display: block;
+            }
+
+            .hero {
+                gap: 32px;
+                padding: 80px 32px;
+            }
+
+            .hero h1 {
+                font-size: 48px;
+            }
+
+            .hero h2 {
+                font-size: 18px;
+            }
+
+            .features {
+                padding: 64px 32px;
+            }
+
+            .features-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .process {
+                padding: 64px 32px;
+            }
+
+            .divider {
+                padding: 0 32px;
+            }
+
+            .testimonials {
+                padding: 64px 32px;
+            }
+
+            .cta {
+                padding: 64px 32px;
+            }
+
+            footer {
+                padding: 32px 32px;
+            }
+
+            .footer-content {
+                flex-direction: row;
+                justify-content: space-between;
+                text-align: left;
+            }
+        }
+
+        @media (min-width: 768px) {
+            header {
+                padding: 12px 40px;
+            }
+
+            nav {
+                display: flex;
+            }
+
+            .hero {
+                min-height: 70vh;
+                padding: 80px 32px;
+            }
+
+            .hero h1 {
+                font-size: 60px;
+            }
+
+            .features {
+                padding: 96px 32px;
+            }
+
+            .section-title {
+                font-size: 36px;
+            }
+
+            .process {
+                padding: 96px 32px;
+            }
+
+            .process-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+
+            .process-line {
+                display: block;
+            }
+
+            .testimonials {
+                padding: 96px 32px;
+            }
+
+            .testimonial-card {
+                padding: 48px;
+            }
+
+            .cta {
+                padding: 80px 32px;
+            }
+
+            .cta h2 {
+                font-size: 36px;
+            }
+
+            footer {
+                padding: 32px 40px;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .features-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+    </style>
+    <script>
+        // Create shooting stars randomly
+        function createShootingStar() {
+            const star = document.createElement('div');
+            star.className = 'shooting-star';
+            
+            // Random starting position (top or right edge)
+            const startFromTop = Math.random() > 0.5;
+            if (startFromTop) {
+                star.style.left = Math.random() * 100 + '%';
+                star.style.top = '0';
+            } else {
+                star.style.left = '100%';
+                star.style.top = Math.random() * 50 + '%';
+            }
+            
+            // Random animation duration between 1.5-3 seconds
+            const duration = 1.5 + Math.random() * 1.5;
+            star.style.animation = `shootingStar ${duration}s linear forwards`;
+            
+            document.body.appendChild(star);
+            
+            // Remove star after animation
+            setTimeout(() => {
+                star.remove();
+            }, duration * 1000);
+        }
+        
+        // Create shooting star at random intervals (every 8-15 seconds)
+        function scheduleShootingStar() {
+            const delay = 8000 + Math.random() * 7000;
+            setTimeout(() => {
+                createShootingStar();
+                scheduleShootingStar();
+            }, delay);
+        }
+        
+        // Start creating shooting stars after page load
+        window.addEventListener('load', () => {
+            scheduleShootingStar();
+            // Create first one after 3 seconds
+            setTimeout(createShootingStar, 3000);
+        });
+    </script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <div class="logo-section">
+                    <div class="logo">
+                        <svg fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                            <path clip-rule="evenodd" d="M24 4H6V17.3333V30.6667H24V44H42V30.6667V17.3333H24V4Z" fill="currentColor" fill-rule="evenodd"></path>
+                        </svg>
+                    </div>
+                    <h2 class="logo-text">Hypnosia</h2>
+                </div>
+                <nav>
+                    <a href="#features">Features</a>
+                    <a href="#process">How It Works</a>
+                    <a href="#testimonials">Testimonials</a>
+                </nav>
+                <div class="header-actions">
+                    <button class="btn btn-primary" onclick="window.location.href='signup.html'">
+                        <span>Sign Up</span>
+                    </button>
+                    <div class="avatar"></div>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <div class="main-wrapper">
+                <section class="hero">
+                    <div>
+                        <h1>Unlock the Science of Your Sleep</h1>
+                        <h2>Hypnosia uses your PSG data to provide personalized sleep insights and actionable tips for a better night's rest.</h2>
+                    </div>
+                    <button class="btn btn-gold" onclick="window.location.href='chatbot.html'">
+                        <span>Get Your Personalized Sleep Plan</span>
+                    </button>
+                </section>
+
+                <section class="features" id="features">
+                    <div class="section-header">
+                        <div class="section-badge">
+                            <span></span>
+                            <p>Features</p>
+                        </div>
+                        <h2 class="section-title">Advanced Features for Deeper Insights</h2>
+                        <p class="section-description">Our platform leverages cutting-edge technology to give you a comprehensive understanding of your sleep patterns.</p>
+                    </div>
+                    <div class="features-grid">
+                        <div class="feature-card">
+                            <div class="feature-icon">
+                                <span class="material-symbols-outlined">ssid_chart</span>
+                            </div>
+                            <div>
+                                <h3 class="feature-title">Precision Sleep Staging</h3>
+                                <p class="feature-description">Our AI accurately analyzes your PSG data to identify every stage of your sleep with scientific precision.</p>
+                            </div>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon">
+                                <span class="material-symbols-outlined">tips_and_updates</span>
+                            </div>
+                            <div>
+                                <h3 class="feature-title">Personalized Recommendations</h3>
+                                <p class="feature-description">Receive actionable tips and insights tailored specifically to your unique sleep profile and goals.</p>
+                            </div>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon">
+                                <span class="material-symbols-outlined">verified_user</span>
+                            </div>
+                            <div>
+                                <h3 class="feature-title">Secure Data Handling</h3>
+                                <p class="feature-description">Your privacy is our priority. All data is encrypted and handled with the utmost confidentiality.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="process" id="process">
+                    <div class="process-header">
+                        <div class="section-badge">
+                            <p>The Process</p>
+                        </div>
+                        <h2 class="section-title">How It Works</h2>
+                        <p class="section-description">A simple, secure process to transform your sleep data into actionable insights.</p>
+                    </div>
+                    <div class="process-grid">
+                        <div class="process-line"></div>
+                        <div class="process-step">
+                            <div class="process-number">1</div>
+                            <h3 class="process-title">Upload Your Data</h3>
+                            <p class="process-description">Securely upload your polysomnography (PSG) data file to our platform.</p>
+                        </div>
+                        <div class="process-step">
+                            <div class="process-number">2</div>
+                            <h3 class="process-title">AI-Powered Analysis</h3>
+                            <p class="process-description">Our advanced algorithms analyze your sleep stages, cycles, and interruptions.</p>
+                        </div>
+                        <div class="process-step">
+                            <div class="process-number">3</div>
+                            <h3 class="process-title">Receive Your Insights</h3>
+                            <p class="process-description">Get a detailed report and personalized tips to improve your sleep quality.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <div class="divider">
+                    <div class="divider-line"></div>
+                </div>
+
+                <section class="testimonials" id="testimonials">
+                    <div class="process-header">
+                        <div class="section-badge">
+                            <p>Testimonials</p>
+                        </div>
+                        <h2 class="section-title">What Our Users Say</h2>
+                        <p class="section-description">Real stories from people who have transformed their sleep with Hypnosia.</p>
+                    </div>
+                    <div class="testimonial-card">
+                        <p class="testimonial-text">"For the first time, I understand why I was always tired. The personalized recommendations were a game-changer. I haven't felt this rested in years."</p>
+                        <div class="testimonial-author">
+                            <div class="author-avatar"></div>
+                            <div>
+                                <p class="author-name">Harishankar</p>
+                                <p class="author-role">Beta User</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="cta">
+                    <h2>Ready for a better night's sleep?</h2>
+                    <p>Take the first step towards understanding and improving your sleep. Get your personalized plan today.</p>
+                    <button class="btn btn-gold">
+                        <span>Sign Up Now</span>
+                    </button>
+                </section>
+            </div>
+        </main>
+
+        <footer>
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <p>Hypnosia</p>
+                    <p>© 2024 Hypnosia. All rights reserved.</p>
+                </div>
+                <div class="footer-links">
+                    <a href="#">Privacy Policy</a>
+                    <a href="#">Terms of Service</a>
+                    <a href="#">Contact</a>
+                </div>
+            </div>
+        </footer>
+    </div>
+</body>
+</html>
