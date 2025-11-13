@@ -31,3 +31,7 @@ print("4. Using CPU instead of GPU (modify device selection in code)\n")
 
 subprocess.run(cmd)
 
+
+
+
+
