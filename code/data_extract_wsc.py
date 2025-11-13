@@ -9,7 +9,7 @@ output_dir.mkdir(parents=True, exist_ok=True)
 
 # Select other physiological channels to keep
 # Adjust channel names as needed based on your EDF
-physio_channels = ['C3_M2','E1','ECG','cchin_l','thorax', 'abdomen', 'position', 'spo2']
+physio_channels = ['C3_M2','E1','ECG','cchin_l','thorax', 'abdomen', 'spo2']
 target_sfreq = 128  # Hz
 
 for edf_path in sorted(input_dir.glob('*.edf')):
