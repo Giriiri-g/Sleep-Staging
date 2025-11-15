@@ -1,15 +1,16 @@
 from pathlib import Path
 
+import numpy as np
 import mne
 
 # Configure your input and output directories here
-input_dir = Path('path/to/edf_directory')
-output_dir = Path('path/to/output_directory')
+input_dir = Path(r'F:\Sleep-Staging\cfs_test')
+output_dir = Path(r'F:\Sleep-Staging\cfs_result')
 output_dir.mkdir(parents=True, exist_ok=True)
 
 # Select other physiological channels to keep
 # Adjust channel names as needed based on your EDF
-physio_channels = ['LOC','ECG1','EMG1','THOR EFFORT', 'ABDO EFFORT', 'SpO2']
+physio_channels = ['LOC','ECG1','EMG1','THOR EFFORT', 'ABDO EFFORT', 'SaO2']
 target_sfreq = 128  # Hz
 
 for edf_path in sorted(input_dir.glob('*.edf')):
@@ -17,25 +18,32 @@ for edf_path in sorted(input_dir.glob('*.edf')):
     raw = mne.io.read_raw_edf(str(edf_path), preload=True)
 
     # Extract C3 and M2 signals
-    c3_signal = raw.copy().pick_channels(['C3']).get_data()[0]
-    m2_signal = raw.copy().pick_channels(['M2']).get_data()[0]
+    c3_signal = raw.copy().pick(['C3']).get_data()[0]
+    m2_signal = raw.copy().pick(['M2']).get_data()[0]
     if len(c3_signal) != len(m2_signal):
         raise ValueError(f"C3 and M2 signals in {edf_path.name} do not have the same length")
 
     # Compute C3-M2 difference (fused channel)
-    c3_m2_signal = c3_signal - m2_signal
+    c3_m2_signal = (c3_signal - m2_signal).reshape(1, -1)
     sfreq = raw.info['sfreq']
-
-    # Create info and RawArray for C3-M2 fused signal
-    c3_m2_info = mne.create_info(ch_names=['C3-M2'], sfreq=sfreq, ch_types=['eeg'])
-    c3_m2_raw = mne.io.RawArray(c3_m2_signal.reshape(1, -1), c3_m2_info)
 
     # Pick the available physio channels from original data
     physio_picks = [ch for ch in physio_channels if ch in raw.ch_names]
-    physio_raw = raw.copy().pick_channels(physio_picks)
+    if not physio_picks:
+        print('  No physio channels found; skipping file.')
+        continue
+
+    physio_raw = raw.copy().pick(physio_picks)
+    physio_data = physio_raw.get_data()
 
     # Combine fused C3-M2 channel with these physio signals
-    combined_raw = mne.concatenate_raws([c3_m2_raw, physio_raw])
+    combined_data = np.vstack([c3_m2_signal, physio_data])
+    combined_info = mne.create_info(
+        ch_names=['C3-M2'] + physio_picks,
+        sfreq=sfreq,
+        ch_types=['eeg'] + ['misc'] * len(physio_picks),
+    )
+    combined_raw = mne.io.RawArray(combined_data, combined_info)
 
     # Resample all channels to the target sampling frequency
     combined_raw.resample(target_sfreq, npad='auto')

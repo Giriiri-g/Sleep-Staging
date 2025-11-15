@@ -13,5 +13,5 @@ def print_edf_channel_names(edf_file_path):
         print(ch)
 
 # Example usage
-edf_path = 'your_file.edf'
+edf_path = r'F:\Sleep-Staging\result\shhs1-200004_combined.edf'
 print_edf_channel_names(edf_path)
