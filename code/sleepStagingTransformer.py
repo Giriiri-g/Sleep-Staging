@@ -327,7 +327,7 @@ class HierarchicalTransformerModel(nn.Module):
 # Example usage and testing
 if __name__ == "__main__":
     # Model parameters
-    input_dim = 128  # e.g., number of frequency bins
+    input_dim = 3000  # e.g., number of frequency bins
     hidden_dim = 256
     num_heads = 8
     num_encoder_layers_local = 4  # N_E
