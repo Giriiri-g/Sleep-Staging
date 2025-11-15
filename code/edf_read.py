@@ -13,5 +13,6 @@ def print_edf_channel_names(edf_file_path):
         print(ch)
 
 # Example usage
-edf_path = r'F:\Sleep-Staging\result\shhs1-200004_combined.edf'
+edf_path = r'D:\mesa_geetha\mesa\edf_annot\mesa-sleep-0001.edf'
+
 print_edf_channel_names(edf_path)

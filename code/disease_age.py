@@ -332,3 +332,69 @@ ax.grid(axis='y', linestyle='--', alpha=0.7)
 
 plt.tight_layout()
 plt.show()
+
+
+mros_csv_path = r"csv-docs\mros-visit1-dataset-0.6.0.csv"  # update with your path
+mros_df = pd.read_csv(mros_csv_path)
+
+# ---------------- Disease Dictionary ----------------
+mros_elderly_disease_dict = {
+    "cvaorane": "Aortic Aneurysm",
+    "cvapcora": "Coronary Artery Disease",
+    "cvcabg": "Coronary Artery Bypass Surgery",
+    "cvcer": "Cerebrovascular Disease (Stroke)",
+    "cvchd": "Coronary Heart Disease",
+    "cvcp30m": "Prolonged Chest Pain (Angina/MI)",
+    "cvtia": "Transient Ischemic Attack (Mini-Stroke)",
+    "mhchf": "Congestive Heart Failure",
+    "mhcobpd": "Chronic Obstructive Pulmonary Disease (COPD)",
+    "mhdiab": "Diabetes Mellitus",
+    "mhmi": "Myocardial Infarction (Heart Attack)",
+    "mhrenal": "Chronic Kidney Disease / Renal Failure",
+    "mhstrk": "Stroke / Brain Hemorrhage"
+}
+
+# ---------------- Compute counts ----------------
+age_cutoff = 60
+age_counts_under = {}
+age_counts_over = {}
+
+for col, disease_name in mros_elderly_disease_dict.items():
+    if col in mros_df.columns:
+        under_count = mros_df[(mros_df[col] == 1) & (mros_df['vsage1'] < age_cutoff)].shape[0]
+        over_count = mros_df[(mros_df[col] == 1) & (mros_df['vsage1'] >= age_cutoff)].shape[0]
+        age_counts_under[disease_name] = under_count
+        age_counts_over[disease_name] = over_count
+
+# ---------------- Plotting ----------------
+diseases = list(age_counts_under.keys())
+under_60 = list(age_counts_under.values())
+above_60 = list(age_counts_over.values())
+
+x = np.arange(len(diseases))
+width = 0.35
+
+fig, ax = plt.subplots(figsize=(16, 7))
+
+bars1 = ax.bar(x - width/2, under_60, width, label='Under 60', color='#FFA500', edgecolor='black')
+bars2 = ax.bar(x + width/2, above_60, width, label='60 and Above', color='#2E8B57', edgecolor='black')
+
+# Add value labels above bars
+for bar in bars1 + bars2:
+    height = bar.get_height()
+    ax.text(bar.get_x() + bar.get_width()/2, height + 0.5, f'{int(height)}',
+            ha='center', va='bottom', fontsize=9)
+
+ax.set_xlabel('Disease Name', fontsize=12)
+ax.set_ylabel('Number of Patients', fontsize=12)
+ax.set_title('MROS Patient Counts by Disease (Under 60 vs 60 and Above)',
+             fontsize=14, fontweight='bold')
+
+ax.set_xticks(x)
+ax.set_xticklabels(diseases, rotation=45, ha='right', fontsize=10)
+
+ax.legend()
+ax.grid(axis='y', linestyle='--', alpha=0.7)
+
+plt.tight_layout()
+plt.show()
