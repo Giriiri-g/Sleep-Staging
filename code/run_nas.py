@@ -1,25 +1,33 @@
 """Run NAS with the sleep staging data"""
 import sys
 import os
+from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from main_nas import run_darts_search, run_rl_search
 import argparse
 
 if __name__ == "__main__":
-    # Default arguments for sleep staging dataset
+    project_root = Path(__file__).resolve().parents[1]
     class Args:
-        data_path = r"C:\PS\Sleep-Staging\sleep-edf-database-expanded-1.0.0\sleep-cassette"
+        data_path = str(project_root / "csv-docs" / "cfs_visit5_selected.csv")
         input_channels = 7
         input_length = 3000
-        num_classes = 7
-        batch_size = 16  # Smaller batch for memory efficiency
-        val_split = 0.2
-        test_split = 0.1
+        num_classes = 20
+        batch_size = 4  # EDF loading is memory intensive
+        num_workers = 0
+        val_split = 100  # absolute count for validation
+        test_split = 0.2  # ratio applied to remaining samples
+        channel_names = None
+        target_sample_rate = 100.0
+        split_seed = 42
+        normalization = "zscore"
         num_cells = 6  # Fewer cells for faster search
         num_nodes = 3  # Fewer nodes for faster search
         init_channels = 32  # Smaller initial channels
         strategy = "darts"  # Start with DARTS
+        task_type = "multi_label"
+        prediction_threshold = 0.5
         w_lr = 0.025
         w_momentum = 0.9
         w_weight_decay = 3e-4

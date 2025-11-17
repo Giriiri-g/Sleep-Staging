@@ -115,12 +115,35 @@ class ArchitectureEvaluator:
     """Evaluate architectures with full or partial training"""
     
     def __init__(self, train_loader: DataLoader, val_loader: DataLoader,
-                 device: torch.device, num_classes: int = 7):
+                 device: torch.device, num_classes: int = 7,
+                 input_channels: int = 7, input_length: int = 3000,
+                 init_channels: int = 64, task_type: str = "single_label",
+                 criterion: Optional[nn.Module] = None, threshold: float = 0.5):
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.device = device
         self.num_classes = num_classes
-        self.criterion = nn.CrossEntropyLoss()
+        self.input_channels = input_channels
+        self.input_length = input_length
+        self.init_channels = init_channels
+        self.task_type = task_type
+        self.threshold = threshold
+        if criterion is None:
+            criterion = nn.BCEWithLogitsLoss() if task_type == "multi_label" else nn.CrossEntropyLoss()
+        self.criterion = criterion
+    
+    def _format_target(self, target: torch.Tensor) -> torch.Tensor:
+        if self.task_type == "multi_label":
+            return target.float()
+        return target.long()
+    
+    def _batch_accuracy(self, logits: torch.Tensor, target: torch.Tensor) -> Tuple[float, int]:
+        if self.task_type == "multi_label":
+            preds = (torch.sigmoid(logits) >= self.threshold).float()
+            per_sample = (preds == target).float().mean(dim=1)
+            return per_sample.sum().item(), per_sample.shape[0]
+        _, predicted = logits.max(1)
+        return predicted.eq(target).sum().item(), target.size(0)
     
     def evaluate(self, arch: Dict, num_epochs: int = 10, lr: float = 0.025,
                 momentum: float = 0.9, weight_decay: float = 3e-4,
@@ -145,8 +168,15 @@ class ArchitectureEvaluator:
             return {'best_val_acc': 0.0, 'final_val_acc': 0.0}
         num_cells = len(arch)
         num_nodes = len(arch[0]) if 0 in arch else num_nodes
-        # Build model
-        model = architecture_to_model(arch, num_cells=num_cells, num_nodes=num_nodes).to(self.device)
+        model = architecture_to_model(
+            arch,
+            input_channels=self.input_channels,
+            input_length=self.input_length,
+            num_classes=self.num_classes,
+            init_channels=self.init_channels,
+            num_cells=num_cells,
+            num_nodes=num_nodes
+        ).to(self.device)
         
         # Optimizer
         optimizer = optim.SGD(
@@ -175,7 +205,7 @@ class ArchitectureEvaluator:
             
             for x, target in self.train_loader:
                 x = x.to(self.device)
-                target = target.to(self.device)
+                target = self._format_target(target.to(self.device))
                 
                 optimizer.zero_grad()
                 logits = model(x)
@@ -184,9 +214,9 @@ class ArchitectureEvaluator:
                 optimizer.step()
                 
                 train_loss += loss.item()
-                _, predicted = logits.max(1)
-                train_total += target.size(0)
-                train_correct += predicted.eq(target).sum().item()
+                correct, total = self._batch_accuracy(logits, target)
+                train_total += total
+                train_correct += correct
             
             scheduler.step()
             
@@ -195,7 +225,8 @@ class ArchitectureEvaluator:
             
             train_losses.append(train_loss / len(self.train_loader))
             val_losses.append(val_metrics['val_loss'])
-            train_accs.append(100. * train_correct / train_total)
+            effective_total = max(1, train_total)
+            train_accs.append(100. * train_correct / effective_total)
             val_accs.append(val_metrics['val_acc'])
             
             if val_metrics['val_acc'] > best_val_acc:
@@ -234,7 +265,15 @@ class ArchitectureEvaluator:
             return 0.0
         num_cells = len(arch)
         num_nodes = len(arch[0]) if 0 in arch else num_nodes
-        model = architecture_to_model(arch, num_cells=num_cells, num_nodes=num_nodes).to(self.device)
+        model = architecture_to_model(
+            arch,
+            input_channels=self.input_channels,
+            input_length=self.input_length,
+            num_classes=self.num_classes,
+            init_channels=self.init_channels,
+            num_cells=num_cells,
+            num_nodes=num_nodes
+        ).to(self.device)
         optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=3e-4)
         
         # Train for a few epochs
@@ -245,7 +284,7 @@ class ArchitectureEvaluator:
                     break
                 
                 x = x.to(self.device)
-                target = target.to(self.device)
+                target = self._format_target(target.to(self.device))
                 
                 optimizer.zero_grad()
                 logits = model(x)
@@ -267,19 +306,20 @@ class ArchitectureEvaluator:
         with torch.no_grad():
             for x, target in self.val_loader:
                 x = x.to(self.device)
-                target = target.to(self.device)
+                target = self._format_target(target.to(self.device))
                 
                 logits = model(x)
                 loss = self.criterion(logits, target)
                 val_loss += loss.item()
                 
-                _, predicted = logits.max(1)
-                val_total += target.size(0)
-                val_correct += predicted.eq(target).sum().item()
+                correct, total = self._batch_accuracy(logits, target)
+                val_total += total
+                val_correct += correct
         
+        effective_total = max(1, val_total)
         return {
             'val_loss': val_loss / len(self.val_loader),
-            'val_acc': 100. * val_correct / val_total
+            'val_acc': 100. * val_correct / effective_total
         }
 
 

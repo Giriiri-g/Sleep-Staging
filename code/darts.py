@@ -21,7 +21,9 @@ class DARTSTrainer:
                  device: torch.device, w_lr: float = 0.025, w_momentum: float = 0.9,
                  w_weight_decay: float = 3e-4, alpha_lr: float = 3e-4,
                  alpha_weight_decay: float = 1e-3, grad_clip: float = 5.0,
-                 unrolled: bool = False, checkpoint_dir: Optional[str] = None):
+                 unrolled: bool = False, checkpoint_dir: Optional[str] = None,
+                 criterion: Optional[nn.Module] = None, task_type: str = "single_label",
+                 pred_threshold: float = 0.5):
         """
         Initialize DARTS trainer
         
@@ -45,6 +47,8 @@ class DARTSTrainer:
         self.unrolled = unrolled
         self.grad_clip = grad_clip
         self.checkpoint_dir = Path(checkpoint_dir) if checkpoint_dir else None
+        self.task_type = task_type
+        self.pred_threshold = pred_threshold
         if self.checkpoint_dir:
             self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
         
@@ -70,7 +74,9 @@ class DARTSTrainer:
         self.num_epochs = None
         
         # Loss function
-        self.criterion = nn.CrossEntropyLoss()
+        if criterion is None:
+            criterion = nn.BCEWithLogitsLoss() if task_type == "multi_label" else nn.CrossEntropyLoss()
+        self.criterion = criterion
     
     def _compute_unrolled_model(self, x, target, eta, w_optimizer):
         """
@@ -92,10 +98,24 @@ class DARTSTrainer:
         
         return unrolled_model
     
-    def _loss(self, x, target):
+    def _loss(self, x, target, model=None):
         """Compute loss"""
-        logits = self.model(x)
+        model = model or self.model
+        logits = model(x)
         return self.criterion(logits, target)
+    
+    def _format_target(self, target):
+        if self.task_type == "multi_label":
+            return target.float()
+        return target.long()
+    
+    def _compute_batch_accuracy(self, logits, target):
+        if self.task_type == "multi_label":
+            preds = (torch.sigmoid(logits) >= self.pred_threshold).float()
+            sample_acc = (preds == target).float().mean(dim=1)
+            return sample_acc.sum().item(), sample_acc.shape[0]
+        _, predicted = logits.max(1)
+        return predicted.eq(target).sum().item(), target.size(0)
     
     def _backward_step_unrolled(self, x_train, target_train, x_valid, target_valid,
                                 eta, w_optimizer):
@@ -103,7 +123,7 @@ class DARTSTrainer:
         Backward step using unrolled optimization (second-order)
         """
         unrolled_model = self._compute_unrolled_model(x_train, target_train, eta, w_optimizer)
-        unrolled_loss = self._loss(unrolled_model(x_valid), target_valid)
+        unrolled_loss = self._loss(x_valid, target_valid, model=unrolled_model)
         
         unrolled_loss.backward()
         dalpha = [v.grad for v in unrolled_model.arch_params]
@@ -161,6 +181,11 @@ class DARTSTrainer:
             x_valid: Validation input
             target_valid: Validation targets
         """
+        x_train = x_train.to(self.device)
+        target_train = self._format_target(target_train.to(self.device))
+        x_valid = x_valid.to(self.device)
+        target_valid = self._format_target(target_valid.to(self.device))
+        
         # Step 1: Update model weights (w) on training set
         self.w_optimizer.zero_grad()
         logits_train = self.model(x_train)
@@ -179,7 +204,7 @@ class DARTSTrainer:
         else:
             self._backward_step_first_order(x_train, target_train, x_valid, target_valid)
         
-        torch.nn.utils.clip_grad_norm_(self.model.arch_params, self.grad_clip)
+        torch.nn.utils.clip_grad_norm_([self.model.arch_params], self.grad_clip)
         self.alpha_optimizer.step()
     
     def train_epoch(self, epoch: int) -> Dict[str, float]:
@@ -191,40 +216,38 @@ class DARTSTrainer:
         
         # Split training data into train and val for DARTS
         # In practice, you might want to use a separate validation set
+        val_iter = iter(self.val_loader)
         for batch_idx, (x_train, target_train) in enumerate(self.train_loader):
             x_train = x_train.to(self.device)
-            target_train = target_train.to(self.device)
+            target_train = self._format_target(target_train.to(self.device))
             
-            # Get validation batch (use next batch or cycle through)
             try:
-                x_valid, target_valid = next(iter(self.val_loader))
-            except:
+                x_valid, target_valid = next(val_iter)
+            except StopIteration:
                 val_iter = iter(self.val_loader)
                 x_valid, target_valid = next(val_iter)
-            
             x_valid = x_valid.to(self.device)
-            target_valid = target_valid.to(self.device)
+            target_valid = self._format_target(target_valid.to(self.device))
             
-            # DARTS step
             self.step(x_train, target_train, x_valid, target_valid)
             
-            # Compute metrics
             with torch.no_grad():
                 logits = self.model(x_train)
                 loss = self.criterion(logits, target_train)
                 train_loss += loss.item()
-                _, predicted = logits.max(1)
-                train_total += target_train.size(0)
-                train_correct += predicted.eq(target_train).sum().item()
+                correct, total = self._compute_batch_accuracy(logits, target_train)
+                train_total += total
+                train_correct += correct
         
         # Update learning rates (only if schedulers are initialized)
         if self.w_scheduler is not None:
             self.w_scheduler.step()
             self.alpha_scheduler.step()
         
+        effective_total = max(1, train_total)
         return {
             'train_loss': train_loss / len(self.train_loader),
-            'train_acc': 100. * train_correct / train_total
+            'train_acc': 100. * train_correct / effective_total
         }
     
     def validate(self) -> Dict[str, float]:
@@ -237,19 +260,20 @@ class DARTSTrainer:
         with torch.no_grad():
             for x, target in self.val_loader:
                 x = x.to(self.device)
-                target = target.to(self.device)
+                target = self._format_target(target.to(self.device))
                 
                 logits = self.model(x)
                 loss = self.criterion(logits, target)
                 val_loss += loss.item()
                 
-                _, predicted = logits.max(1)
-                val_total += target.size(0)
-                val_correct += predicted.eq(target).sum().item()
+                correct, total = self._compute_batch_accuracy(logits, target)
+                val_total += total
+                val_correct += correct
         
+        effective_total = max(1, val_total)
         return {
             'val_loss': val_loss / len(self.val_loader),
-            'val_acc': 100. * val_correct / val_total
+            'val_acc': 100. * val_correct / effective_total
         }
     
     def get_architecture(self) -> Dict:

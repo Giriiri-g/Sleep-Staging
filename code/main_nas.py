@@ -21,6 +21,7 @@ from darts import DARTSTrainer
 from rl_search import RLSearchTrainer, PolicyNetwork, actions_to_architecture
 from nas_evaluator import ArchitectureEvaluator, PerformanceEstimator, print_architecture
 from dataloader import LazyPSGDataset
+from cfs_dataset import create_cfs_dataloaders
 from utils import (print_header, print_section, print_info, print_success, 
                    print_warning, print_error, print_key_value, print_metric,
                    suppress_warnings)
@@ -29,8 +30,20 @@ from utils import (print_header, print_section, print_info, print_success,
 suppress_warnings()
 
 
+def _unwrap_dataset(dataset):
+    base = dataset
+    visited = set()
+    while hasattr(base, "dataset") and id(base) not in visited:
+        visited.add(id(base))
+        base = base.dataset
+    return base
+
+
 def get_data_loaders(data_path: str, batch_size: int = 32, val_split: float = 0.2,
-                    test_split: float = 0.1, num_workers: int = 0):
+                    test_split: float = 0.1, num_workers: int = 0,
+                    input_channels: int = 7, input_length: int = 3000,
+                    channel_names=None, target_sample_rate: float = 100.0,
+                    split_seed: int = 42, normalization: str = "zscore"):
     """
     Get data loaders for training, validation, and testing
     
@@ -45,10 +58,37 @@ def get_data_loaders(data_path: str, batch_size: int = 32, val_split: float = 0.
         train_loader, val_loader, test_loader
     """
     print_info("Loading dataset...")
-    # Load dataset
+    channel_list = None
+    if channel_names:
+        if isinstance(channel_names, str):
+            channel_list = [ch.strip() for ch in channel_names.split(",") if ch.strip()]
+        else:
+            channel_list = [str(ch).strip() for ch in channel_names if str(ch).strip()]
+    
+    if data_path.lower().endswith(".csv"):
+        train_loader, val_loader, test_loader, stats = create_cfs_dataloaders(
+            csv_path=data_path,
+            batch_size=batch_size,
+            input_channels=input_channels,
+            input_length=input_length,
+            val_split=val_split,
+            test_split=test_split,
+            num_workers=num_workers,
+            seed=split_seed,
+            channel_names=channel_list,
+            target_sample_rate=target_sample_rate,
+            normalization=normalization,
+        )
+        print_section("Dataset Information")
+        print_key_value("Total samples", f"{stats['total']:,}")
+        print_key_value("Train samples", f"{stats['train']:,}")
+        print_key_value("Validation samples", f"{stats['val']:,}")
+        print_key_value("Test samples", f"{stats['test']:,}")
+        print_key_value("Batch size", batch_size)
+        return train_loader, val_loader, test_loader
+    
     dataset = LazyPSGDataset(folder_path=data_path, window_size=30)
     
-    # Split dataset
     total_size = len(dataset)
     test_size = int(total_size * test_split)
     val_size = int(total_size * val_split)
@@ -56,10 +96,9 @@ def get_data_loaders(data_path: str, batch_size: int = 32, val_split: float = 0.
     
     train_dataset, val_dataset, test_dataset = random_split(
         dataset, [train_size, val_size, test_size],
-        generator=torch.Generator().manual_seed(42)
+        generator=torch.Generator().manual_seed(split_seed)
     )
     
-    # Create data loaders
     train_loader = DataLoader(
         train_dataset, batch_size=batch_size, shuffle=True,
         num_workers=num_workers, pin_memory=True
@@ -96,8 +135,30 @@ def run_darts_search(args):
     
     # Data loaders
     train_loader, val_loader, test_loader = get_data_loaders(
-        args.data_path, args.batch_size, args.val_split, args.test_split
+        data_path=args.data_path,
+        batch_size=args.batch_size,
+        val_split=args.val_split,
+        test_split=args.test_split,
+        num_workers=args.num_workers,
+        input_channels=args.input_channels,
+        input_length=args.input_length,
+        channel_names=args.channel_names,
+        target_sample_rate=args.target_sample_rate,
+        split_seed=args.split_seed,
+        normalization=args.normalization,
     )
+    
+    base_dataset = _unwrap_dataset(train_loader.dataset)
+    dataset_task_type = getattr(base_dataset, "task_type", None)
+    inferred_classes = getattr(base_dataset, "num_labels", None)
+    task_type = dataset_task_type or args.task_type
+    if inferred_classes and inferred_classes != args.num_classes:
+        print_warning(
+            f"Overriding num_classes from {args.num_classes} to dataset-provided {inferred_classes}"
+        )
+        args.num_classes = inferred_classes
+    
+    criterion = nn.BCEWithLogitsLoss() if task_type == "multi_label" else nn.CrossEntropyLoss()
     
     # Create supernet
     print_info("Creating supernet...")
@@ -132,7 +193,10 @@ def run_darts_search(args):
         alpha_lr=args.alpha_lr,
         alpha_weight_decay=args.alpha_weight_decay,
         unrolled=args.unrolled,
-        checkpoint_dir=str(checkpoint_dir) if checkpoint_dir else None
+        checkpoint_dir=str(checkpoint_dir) if checkpoint_dir else None,
+        criterion=criterion,
+        task_type=task_type,
+        pred_threshold=args.prediction_threshold
     )
     
     # Determine checkpoint to resume from
@@ -163,9 +227,25 @@ def run_darts_search(args):
     # Evaluate final architecture
     print_section("Evaluation")
     print_info("Evaluating final architecture...")
-    evaluator = ArchitectureEvaluator(train_loader, val_loader, device, args.num_classes)
-    eval_results = evaluator.evaluate(final_arch, num_epochs=args.final_train_epochs, verbose=True,
-                                     num_cells=args.num_cells, num_nodes=args.num_nodes)
+    evaluator = ArchitectureEvaluator(
+        train_loader=train_loader,
+        val_loader=val_loader,
+        device=device,
+        num_classes=args.num_classes,
+        input_channels=args.input_channels,
+        input_length=args.input_length,
+        init_channels=args.init_channels,
+        task_type=task_type,
+        criterion=criterion,
+        threshold=args.prediction_threshold
+    )
+    eval_results = evaluator.evaluate(
+        final_arch,
+        num_epochs=args.final_train_epochs,
+        verbose=True,
+        num_cells=args.num_cells,
+        num_nodes=args.num_nodes
+    )
     
     print_section("Final Results")
     print_metric("Best Val Accuracy", eval_results['best_val_acc'], "%")
@@ -200,13 +280,27 @@ def run_rl_search(args):
     print("RL-based Neural Architecture Search")
     print("=" * 60)
     
+    if args.task_type == "multi_label":
+        print_warning("RL search currently supports only single-label classification.")
+        raise NotImplementedError("RL search currently supports only single-label classification.")
+    
     # Device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
     
     # Data loaders
     train_loader, val_loader, test_loader = get_data_loaders(
-        args.data_path, args.batch_size, args.val_split, args.test_split
+        data_path=args.data_path,
+        batch_size=args.batch_size,
+        val_split=args.val_split,
+        test_split=args.test_split,
+        num_workers=args.num_workers,
+        input_channels=args.input_channels,
+        input_length=args.input_length,
+        channel_names=args.channel_names,
+        target_sample_rate=args.target_sample_rate,
+        split_seed=args.split_seed,
+        normalization=args.normalization,
     )
     
     # Create policy network
@@ -247,7 +341,16 @@ def run_rl_search(args):
     
     # Evaluate best architecture
     print("\nEvaluating best architecture...")
-    evaluator = ArchitectureEvaluator(train_loader, val_loader, device, args.num_classes)
+    evaluator = ArchitectureEvaluator(
+        train_loader=train_loader,
+        val_loader=val_loader,
+        device=device,
+        num_classes=args.num_classes,
+        input_channels=args.input_channels,
+        input_length=args.input_length,
+        init_channels=args.init_channels,
+        task_type=args.task_type
+    )
     eval_results = evaluator.evaluate(best_arch, num_epochs=args.final_train_epochs, verbose=True,
                                      num_cells=args.num_cells, num_nodes=args.num_nodes)
     
@@ -304,10 +407,20 @@ def main():
                        help="Number of classes (default: 7)")
     parser.add_argument("--batch_size", type=int, default=32,
                        help="Batch size (default: 32)")
+    parser.add_argument("--num_workers", type=int, default=0,
+                       help="DataLoader worker processes (default: 0)")
     parser.add_argument("--val_split", type=float, default=0.2,
-                       help="Validation split ratio (default: 0.2)")
+                       help="Validation split ratio or count (default: 0.2)")
     parser.add_argument("--test_split", type=float, default=0.1,
-                       help="Test split ratio (default: 0.1)")
+                       help="Test split ratio or count (default: 0.1)")
+    parser.add_argument("--channel_names", type=str, default=None,
+                       help="Comma-separated channel names to pick from EDF files (CSV datasets)")
+    parser.add_argument("--target_sample_rate", type=float, default=100.0,
+                       help="Target sampling rate when resampling EDF signals")
+    parser.add_argument("--split_seed", type=int, default=42,
+                       help="Random seed for dataset splits")
+    parser.add_argument("--normalization", type=str, choices=["zscore", "minmax", "none"],
+                       default="zscore", help="Signal normalization strategy for CSV datasets")
     
     # Architecture arguments
     parser.add_argument("--num_cells", type=int, default=8,
@@ -320,6 +433,10 @@ def main():
     # Search strategy
     parser.add_argument("--strategy", type=str, choices=["darts", "rl", "both"],
                        default="darts", help="Search strategy (default: darts)")
+    parser.add_argument("--task_type", type=str, choices=["single_label", "multi_label"],
+                       default="single_label", help="Classification task type")
+    parser.add_argument("--prediction_threshold", type=float, default=0.5,
+                       help="Decision threshold for multi-label predictions")
     
     # DARTS arguments
     parser.add_argument("--w_lr", type=float, default=0.025,
