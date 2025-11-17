@@ -1,3 +1,4 @@
+
 """
 Neural Architecture Search Space for Time Series Classification
 Defines operations and search space for sleep stage classification
@@ -42,6 +43,124 @@ class Conv1dOperation(nn.Module):
         x = self.bn(x)
         x = self.activation(x)
         x = self.dropout(x)
+        return x
+
+
+class DisjointCNNOperation(nn.Module):
+    """1+1D Convolution operation (Disjoint CNN) with configurable parameters
+    
+    DisjointCNN applies convolutions in two phases:
+    1. Temporal convolution: (kernel_size, 1) - learns temporal patterns
+    2. Spatial convolution: (1, n_channels) - learns channel interactions
+    
+    This separates temporal and spatial feature learning for multivariate time series.
+    """
+    def __init__(self, in_channels: int, out_channels: int, kernel_size: int,
+                 stride: int = 1, padding: Optional[int] = None, dilation: int = 1,
+                 use_bn: bool = True, activation: str = 'relu', dropout: float = 0.0):
+        super().__init__()
+        
+        if padding is None:
+            padding = (kernel_size - 1) // 2 * dilation
+        
+        # Temporal Convolution: (kernel_size, 1)
+        # Operates on time dimension, treats each channel independently
+        self.temporal_conv = nn.Conv2d(
+            in_channels=1,  # Process one channel at a time across time
+            out_channels=out_channels,
+            kernel_size=(kernel_size, 1),
+            stride=(stride, 1),
+            padding=(padding, 0),
+            dilation=(dilation, 1),
+            bias=not use_bn
+        )
+        
+        self.temporal_bn = nn.BatchNorm2d(out_channels) if use_bn else nn.Identity()
+        
+        # Activation after temporal convolution
+        if activation == 'relu':
+            self.temporal_activation = nn.ReLU(inplace=True)
+        elif activation == 'gelu':
+            self.temporal_activation = nn.GELU()
+        elif activation == 'swish':
+            self.temporal_activation = nn.SiLU()
+        elif activation == 'leaky_relu':
+            self.temporal_activation = nn.LeakyReLU(0.2, inplace=True)
+        elif activation == 'elu':
+            self.temporal_activation = nn.ELU(inplace=True)
+        else:
+            self.temporal_activation = nn.Identity()
+        
+        # Spatial convolution will be applied dynamically based on input channels
+        # It's created in forward pass to handle variable channel dimensions
+        self.out_channels = out_channels
+        self.use_bn = use_bn
+        self.activation_type = activation
+        
+        # Spatial BN and activation
+        self.spatial_bn = nn.BatchNorm2d(out_channels) if use_bn else nn.Identity()
+        
+        if activation == 'relu':
+            self.spatial_activation = nn.ReLU(inplace=True)
+        elif activation == 'gelu':
+            self.spatial_activation = nn.GELU()
+        elif activation == 'swish':
+            self.spatial_activation = nn.SiLU()
+        elif activation == 'leaky_relu':
+            self.spatial_activation = nn.LeakyReLU(0.2, inplace=True)
+        elif activation == 'elu':
+            self.spatial_activation = nn.ELU(inplace=True)
+        else:
+            self.spatial_activation = nn.Identity()
+        
+        self.dropout = nn.Dropout2d(dropout) if dropout > 0 else nn.Identity()
+        
+        # Cache for spatial conv layer
+        self.spatial_conv = None
+        self._last_spatial_dim = None
+    
+    def forward(self, x):
+        """
+        Args:
+            x: Input tensor of shape (batch, in_channels, length)
+        
+        Returns:
+            Output tensor of shape (batch, out_channels, length')
+        """
+        # Reshape from (B, C, L) to (B, 1, L, C) for 2D convolution
+        # This allows temporal conv to operate on time dimension
+        batch_size, in_channels, length = x.shape
+        x = x.permute(0, 2, 1)  # (B, L, C)
+        x = x.unsqueeze(1)  # (B, 1, L, C)
+        
+        # Phase 1: Temporal Convolution (kernel_size, 1)
+        x = self.temporal_conv(x)  # (B, out_channels, L', C)
+        x = self.temporal_bn(x)
+        x = self.temporal_activation(x)
+        
+        # Get current spatial dimension (number of channels)
+        current_spatial_dim = x.shape[3]
+        
+        # Phase 2: Spatial Convolution (1, n_channels)
+        # Create spatial conv layer if needed or if channel dimension changed
+        if self.spatial_conv is None or self._last_spatial_dim != current_spatial_dim:
+            self.spatial_conv = nn.Conv2d(
+                in_channels=self.out_channels,
+                out_channels=self.out_channels,
+                kernel_size=(1, current_spatial_dim),
+                padding='valid',
+                bias=not self.use_bn
+            ).to(x.device)
+            self._last_spatial_dim = current_spatial_dim
+        
+        x = self.spatial_conv(x)  # (B, out_channels, L', 1)
+        x = self.spatial_bn(x)
+        x = self.spatial_activation(x)
+        x = self.dropout(x)
+        
+        # Reshape back to (B, out_channels, L')
+        x = x.squeeze(3)  # Remove spatial dimension
+        
         return x
 
 
@@ -112,6 +231,63 @@ class AttentionOperation(nn.Module):
         
         out = out.permute(0, 2, 1)  # (B, C, T)
         return out
+
+
+class FullyConnectedOperation(nn.Module):
+    """Fully Connected (Dense) operation with configurable parameters
+    
+    Can be used for:
+    - Classification heads
+    - Projection layers
+    - Feature transformation
+    - Dimensionality reduction/expansion
+    """
+    def __init__(self, in_features: int, out_features: int, 
+                 use_bn: bool = True, activation: str = 'relu',
+                 dropout: float = 0.0, bias: bool = True):
+        super().__init__()
+        
+        self.fc = nn.Linear(in_features, out_features, bias=bias if not use_bn else False)
+        self.bn = nn.BatchNorm1d(out_features) if use_bn else nn.Identity()
+        
+        if activation == 'relu':
+            self.activation = nn.ReLU(inplace=True)
+        elif activation == 'gelu':
+            self.activation = nn.GELU()
+        elif activation == 'swish':
+            self.activation = nn.SiLU()
+        elif activation == 'leaky_relu':
+            self.activation = nn.LeakyReLU(0.2, inplace=True)
+        elif activation == 'elu':
+            self.activation = nn.ELU(inplace=True)
+        elif activation == 'tanh':
+            self.activation = nn.Tanh()
+        elif activation == 'sigmoid':
+            self.activation = nn.Sigmoid()
+        else:
+            self.activation = nn.Identity()
+        
+        self.dropout = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
+    
+    def forward(self, x):
+        """
+        Args:
+            x: Input tensor of shape (batch, in_features) or (batch, in_features, length)
+               If 3D, applies global average pooling first
+        
+        Returns:
+            Output tensor of shape (batch, out_features)
+        """
+        # Handle 3D input from conv layers
+        if x.dim() == 3:
+            x = x.mean(dim=2)  # Global average pooling: (B, C, L) -> (B, C)
+        
+        x = self.fc(x)
+        x = self.bn(x)
+        x = self.activation(x)
+        x = self.dropout(x)
+        
+        return x
 
 
 class DepthwiseSeparableConv(nn.Module):
@@ -193,6 +369,9 @@ SEARCH_SPACE = {
     'attention': lambda C: AttentionOperation(C, num_heads=8),
     'identity': lambda C: IdentityOperation(),
     'zero': lambda C: ZeroOperation(),
+    'disjoint_cnn_3x1': lambda C: DisjointCNNOperation(C, C, kernel_size=3, activation='relu'),
+    'disjoint_cnn_5x1': lambda C: DisjointCNNOperation(C, C, kernel_size=5, activation='relu'),
+    'fc': lambda C: FullyConnectedOperation(C, C, use_bn=True, activation='relu'),
 }
 
 # Operations for DARTS (excluding zero for intermediate nodes)
