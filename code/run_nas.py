@@ -11,14 +11,14 @@ if __name__ == "__main__":
     project_root = Path(__file__).resolve().parents[1]
     class Args:
         data_path = str(project_root / "csv-docs" / "cfs_visit5_selected.csv")
-        input_channels = 7
+        input_channels = 8
         input_length = 3000
         num_classes = 20
         batch_size = 4  # EDF loading is memory intensive
         num_workers = 0
         val_split = 100  # absolute count for validation
         test_split = 0.2  # ratio applied to remaining samples
-        channel_names = None
+        channel_names = ['C3', 'M2', 'LOC','ECG1','EMG1','THOR EFFORT', 'ABDO EFFORT', 'SaO2']
         target_sample_rate = 100.0
         split_seed = 42
         normalization = "zscore"
@@ -47,6 +47,8 @@ if __name__ == "__main__":
         final_train_epochs = 15
         print_freq = 5
         save_dir = "nas_results_darts"
+        resume_from = None
+        checkpoint_freq = 5
     
     args = Args()
     
