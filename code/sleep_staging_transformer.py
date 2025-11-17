@@ -13,6 +13,7 @@ import re
 import sys
 import warnings
 import math
+import random
 from pathlib import Path
 from collections import defaultdict
 from typing import Tuple, Optional, Dict, List
@@ -409,6 +410,63 @@ class SleepEDFDataset(Dataset):
                     self.samples.append((psg_file, start_samples, labels))
         
         print_debug(f"Created {len(self.samples)} valid samples", "SUCCESS")
+        self._balance_samples()
+
+    def _balance_samples(self):
+        """Downsample classes so each has equal number of segments"""
+        if not self.samples:
+            return
+
+        print_debug("Balancing class distribution across samples...", "INFO")
+
+        sample_entries = []
+        class_segment_counts = defaultdict(int)
+
+        for sample in self.samples:
+            _, _, labels = sample
+            label_counts = defaultdict(int)
+            for label in labels:
+                label_counts[label] += 1
+                class_segment_counts[label] += 1
+            sample_entries.append((*sample, label_counts))
+
+        if not class_segment_counts:
+            return
+
+        target_count = min(class_segment_counts.values())
+        print_debug(f"Target segments per class: {target_count}", "INFO")
+
+        target_per_class = {label: target_count for label in class_segment_counts}
+        random.shuffle(sample_entries)
+
+        balanced_samples = []
+        running_counts = defaultdict(int)
+
+        for entry in sample_entries:
+            psg_file, start_samples, labels, label_counts = entry
+
+            can_add = True
+            for label, count in label_counts.items():
+                if running_counts[label] + count > target_per_class[label]:
+                    can_add = False
+                    break
+
+            if not can_add:
+                continue
+
+            balanced_samples.append((psg_file, start_samples, labels))
+            for label, count in label_counts.items():
+                running_counts[label] += count
+
+            if all(running_counts[label] >= target_per_class[label] for label in target_per_class):
+                break
+
+        self.samples = balanced_samples
+
+        for label, count in running_counts.items():
+            print_debug(f"Class {label}: {count} segments", "INFO")
+
+        print_debug(f"Balanced samples: {len(self.samples)}", "SUCCESS")
     
     def _compute_spectrogram(self, signal_data: np.ndarray, fs: int) -> np.ndarray:
         """Compute spectrogram for a signal with fixed frequency resolution"""
