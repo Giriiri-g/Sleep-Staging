@@ -4,8 +4,8 @@ import numpy as np
 import mne
 
 # Configure your input and output directories here
-input_dir = Path(r'F:\Sleep-Staging\cfs_test')
-output_dir = Path(r'F:\Sleep-Staging\cfs_result')
+input_dir = Path(r'D:\cfs\polysomnography\edfs')
+output_dir = Path(r'D:\cfs\polysomnography\edfs_combined')
 output_dir.mkdir(parents=True, exist_ok=True)
 
 # Select other physiological channels to keep
