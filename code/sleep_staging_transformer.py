@@ -747,15 +747,22 @@ class CFSSleepStagingDataset(Dataset):
                     # Track epochs for this file
                     file_epochs = []
                     
+                    initial_wake_epochs = 0
+                    sleep_started = False
+                    
                     for desc, onset, duration in zip(
                         annotations.description, 
                         annotations.onset, 
                         annotations.duration
                     ):
                         original_label = self.original_stage_mapping.get(desc, 6)
+                        full_epochs = int(duration // self.epoch_seconds)
+                        start_sample = int(onset * sfreq)
                         
                         # Skip wake stages
                         if original_label == 0:  # Wake
+                            if self.skip_initial_wake and not sleep_started:
+                                initial_wake_epochs += full_epochs
                             continue
                         
                         # Filter unscored if requested
@@ -765,11 +772,9 @@ class CFSSleepStagingDataset(Dataset):
                         # Map to new label (excluding wake)
                         if desc in self.stage_mapping:
                             label = self.stage_mapping[desc]
+                            sleep_started = True
                         else:
                             continue
-                        
-                        full_epochs = int(duration // self.epoch_seconds)
-                        start_sample = int(onset * sfreq)
                         
                         for i in range(full_epochs):
                             epoch_start = start_sample + i * epoch_samples
@@ -777,6 +782,18 @@ class CFSSleepStagingDataset(Dataset):
                             
                             if epoch_end <= raw.n_times:
                                 file_epochs.append((epoch_start, label))
+                    
+                    if self.skip_initial_wake:
+                        if initial_wake_epochs > 0:
+                            print_debug(
+                                f"Clipped {initial_wake_epochs} initial wake epochs for {edf_file}",
+                                "INFO"
+                            )
+                        else:
+                            print_debug(
+                                f"No initial wake epochs to clip for {edf_file}",
+                                "INFO"
+                            )
                     
                     # Skip initial wake stages: find first non-wake epoch
                     if self.skip_initial_wake and file_epochs:
@@ -1266,7 +1283,7 @@ def train_model(
     # Loss and optimizer
     criterion = nn.CrossEntropyLoss()
     optimizer = AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-5)
-    scheduler = ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=5, verbose=False)
+    scheduler = ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=5)
     
     # Checkpoint manager
     checkpoint_manager = CheckpointManager(checkpoint_dir)
@@ -1354,13 +1371,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--edf_folder_path",
         type=str,
-        default=r"D:\cfs\polysomnography\edfs",
+        default=r"C:\PS\Sleep-Staging\cfs_test",
         help="Path to CFS EDF files folder"
     )
     parser.add_argument(
         "--annotation_folder_path",
         type=str,
-        default=r"D:\cfs\polysomnography\annotations-events-nsrr",
+        default=r"C:\PS\Sleep-Staging\cfs_test_xml",
         help="Path to CFS XML annotation files folder"
     )
     parser.add_argument("--num_epochs", type=int, default=50, help="Number of training epochs")
