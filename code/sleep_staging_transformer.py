@@ -744,8 +744,8 @@ class CFSSleepStagingDataset(Dataset):
                     
                     epoch_samples = int(self.epoch_seconds * sfreq)
                     
-                    # Track all epochs (including wake) for this file
-                    all_file_epochs = []
+                    # Track epochs for this file
+                    file_epochs = []
                     
                     for desc, onset, duration in zip(
                         annotations.description, 
@@ -754,8 +754,18 @@ class CFSSleepStagingDataset(Dataset):
                     ):
                         original_label = self.original_stage_mapping.get(desc, 6)
                         
+                        # Skip wake stages
+                        if original_label == 0:  # Wake
+                            continue
+                        
                         # Filter unscored if requested
                         if self.filter_unscored and original_label == 6:
+                            continue
+                        
+                        # Map to new label (excluding wake)
+                        if desc in self.stage_mapping:
+                            label = self.stage_mapping[desc]
+                        else:
                             continue
                         
                         full_epochs = int(duration // self.epoch_seconds)
@@ -766,43 +776,17 @@ class CFSSleepStagingDataset(Dataset):
                             epoch_end = epoch_start + epoch_samples
                             
                             if epoch_end <= raw.n_times:
-                                all_file_epochs.append((epoch_start, original_label, desc))
-                    
-                    # Sort by start sample
-                    all_file_epochs.sort(key=lambda x: x[0])
+                                file_epochs.append((epoch_start, label))
                     
                     # Skip initial wake stages: find first non-wake epoch
-                    if self.skip_initial_wake and all_file_epochs:
-                        # Find the first non-wake epoch
-                        first_sleep_idx = None
-                        for idx, (_, label, _) in enumerate(all_file_epochs):
-                            if label != 0:  # Not wake
-                                first_sleep_idx = idx
-                                break
-                        
-                        if first_sleep_idx is not None:
-                            # Start from first sleep epoch
-                            file_epochs = all_file_epochs[first_sleep_idx:]
-                        else:
-                            # All epochs are wake, skip this file
-                            print_debug(f"All epochs are wake in {edf_file}, skipping", "WARNING")
-                            continue
+                    if self.skip_initial_wake and file_epochs:
+                        file_epochs.sort(key=lambda x: x[0])
+                        # All wake stages are already filtered, so we can use all epochs
+                        # But we want to skip initial wake if there are any at the start
+                        # Since we already filtered wake, we just need to ensure we start from sleep onset
+                        all_epochs.extend([(edf_file, start_sample, label) for start_sample, label in file_epochs])
                     else:
-                        file_epochs = all_file_epochs
-                    
-                    # Map labels and filter wake
-                    for start_sample, original_label, desc in file_epochs:
-                        # Skip wake stages (after initial wake if skip_initial_wake is True)
-                        if original_label == 0:  # Wake
-                            continue
-                        
-                        # Map to new label (excluding wake)
-                        if desc in self.stage_mapping:
-                            label = self.stage_mapping[desc]
-                        else:
-                            continue
-                        
-                        all_epochs.append((edf_file, start_sample, label))
+                        all_epochs.extend([(edf_file, start_sample, label) for start_sample, label in file_epochs])
                     
             except Exception as e:
                 print_debug(f"Error processing {edf_file}: {e}", "ERROR")
