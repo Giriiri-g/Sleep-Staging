@@ -193,9 +193,13 @@ class LSTMOperation(nn.Module):
 
 class AttentionOperation(nn.Module):
     """Multi-head self-attention operation"""
-    def __init__(self, in_channels: int, num_heads: int = 8, dropout: float = 0.0):
+    def __init__(self, in_channels: int, num_heads: int = 4, dropout: float = 0.0):
         super().__init__()
-        assert in_channels % num_heads == 0, "in_channels must be divisible by num_heads"
+        # Ensure num_heads divides in_channels, adjust if needed
+        if in_channels < num_heads:
+            num_heads = 1
+        while in_channels % num_heads != 0 and num_heads > 1:
+            num_heads -= 1
         
         self.num_heads = num_heads
         self.head_dim = in_channels // num_heads
@@ -366,7 +370,8 @@ SEARCH_SPACE = {
     'max_pool_3x1': lambda C: TemporalPooling('max', kernel_size=3),
     'avg_pool_3x1': lambda C: TemporalPooling('avg', kernel_size=3),
     'lstm': lambda C: LSTMOperation(C, C // 2, num_layers=1, bidirectional=True),
-    'attention': lambda C: AttentionOperation(C, num_heads=8),
+    'attention': lambda C: AttentionOperation(C, num_heads=4),  # Reduced heads for efficiency
+    'attention_light': lambda C: AttentionOperation(C, num_heads=2),  # Lightweight attention
     'identity': lambda C: IdentityOperation(),
     'zero': lambda C: ZeroOperation(),
     'disjoint_cnn_3x1': lambda C: DisjointCNNOperation(C, C, kernel_size=3, activation='relu'),
@@ -375,7 +380,17 @@ SEARCH_SPACE = {
 }
 
 # Operations for DARTS (excluding zero for intermediate nodes)
-DARTS_OPS = [op for op in SEARCH_SPACE.keys() if op != 'zero']
+# Prioritize efficient operations, exclude memory-intensive ones for small GPUs
+DARTS_OPS = [
+    'conv_1x1', 'conv_3x1', 'conv_5x1',
+    'sep_conv_3x1', 'sep_conv_5x1',  # Efficient separable convolutions
+    'dil_conv_3x1', 'dil_conv_5x1',  # Dilated convolutions
+    # 'disjoint_cnn_3x1', 'disjoint_cnn_5x1',  # Disjoint CNN - memory intensive, disabled for 4GB GPU
+    'attention_light',  # Lightweight attention only (2 heads)
+    'max_pool_3x1', 'avg_pool_3x1',  # Pooling
+    # 'lstm',  # LSTM - memory intensive, disabled for 4GB GPU
+    'identity'  # Skip connection
+]
 
 # All operations for RL search
 ALL_OPS = list(SEARCH_SPACE.keys())

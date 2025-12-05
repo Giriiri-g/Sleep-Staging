@@ -213,11 +213,24 @@ class DARTSTrainer:
         train_loss = 0.0
         train_correct = 0
         train_total = 0
+
+        print_info(f"[DARTS] Starting train_epoch {epoch} "
+                   f"with {len(self.train_loader)} train batches and "
+                   f"{len(self.val_loader)} val batches")
         
         # Split training data into train and val for DARTS
         # In practice, you might want to use a separate validation set
         val_iter = iter(self.val_loader)
         for batch_idx, (x_train, target_train) in enumerate(self.train_loader):
+            # Clear cache periodically for memory management
+            if batch_idx % 10 == 0 and torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                print_info(f"[DARTS] Epoch {epoch} batch {batch_idx}: cleared CUDA cache")
+
+            if batch_idx % 5 == 0:
+                print_info(f"[DARTS] Epoch {epoch} batch {batch_idx}/{len(self.train_loader)} "
+                           f"- got batch of shape {tuple(x_train.shape)}")
+
             x_train = x_train.to(self.device)
             target_train = self._format_target(target_train.to(self.device))
             
@@ -238,6 +251,12 @@ class DARTSTrainer:
                 correct, total = self._compute_batch_accuracy(logits, target_train)
                 train_total += total
                 train_correct += correct
+            
+            # Delete intermediate tensors to free memory
+            del x_train, target_train, x_valid, target_valid, logits, loss
+
+        print_info(f"[DARTS] Finished train_epoch {epoch}: "
+                   f"processed {train_total} samples")
         
         # Update learning rates (only if schedulers are initialized)
         if self.w_scheduler is not None:

@@ -9,6 +9,7 @@ import os
 import warnings
 from pathlib import Path
 from typing import List, Optional, Sequence, Tuple
+import time
 
 import numpy as np
 import pandas as pd
@@ -72,18 +73,48 @@ class CFSAilmentDataset(Dataset):
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         row = self.df.iloc[idx]
-        edf_path = Path(row[self.path_column])
-        if not edf_path.exists():
-            raise FileNotFoundError(f"EDF file not found: {edf_path}")
+        path = Path(row[self.path_column])
 
-        raw = mne.io.read_raw_edf(str(edf_path), preload=True, verbose=False)
-        if self.target_sample_rate and abs(raw.info["sfreq"] - self.target_sample_rate) > 1e-3:
-            raw.resample(self.target_sample_rate)
+        # Fast path: preprocessed tensor file (.pt)
+        if path.suffix == ".pt":
+            if not path.exists():
+                raise FileNotFoundError(f"Preprocessed tensor file not found: {path}")
+            signal_tensor = torch.load(path, map_location="cpu")
+            if not isinstance(signal_tensor, torch.Tensor):
+                signal_tensor = torch.tensor(signal_tensor, dtype=torch.float32)
+            else:
+                signal_tensor = signal_tensor.to(dtype=torch.float32)
 
-        signal = self._extract_channels(raw)
-        signal = self._normalize(signal)
-        signal_tensor = torch.tensor(signal, dtype=torch.float32)
-        signal_tensor = self._ensure_length(signal_tensor)
+        else:
+            edf_path = path
+
+            # Debug: trace EDF loading for first few samples
+            if idx < 3:
+                print_info(f"[CFS] __getitem__ start idx={idx}, path={edf_path}")
+
+            if not edf_path.exists():
+                raise FileNotFoundError(f"EDF file not found: {edf_path}")
+
+            t0 = time.time()
+            raw = mne.io.read_raw_edf(str(edf_path), preload=True, verbose=False)
+            load_time = time.time() - t0
+            if idx < 3:
+                print_info(
+                    f"[CFS] Loaded EDF idx={idx} in {load_time:.2f}s "
+                    f"(sfreq={raw.info.get('sfreq', 'NA')}, n_channels={len(raw.ch_names)})"
+                )
+
+            if self.target_sample_rate and abs(raw.info["sfreq"] - self.target_sample_rate) > 1e-3:
+                raw.resample(self.target_sample_rate)
+                if idx < 3:
+                    print_info(
+                        f"[CFS] Resampled EDF idx={idx} to {self.target_sample_rate} Hz"
+                    )
+
+            signal = self._extract_channels(raw)
+            signal = self._normalize(signal)
+            signal_tensor = torch.tensor(signal, dtype=torch.float32)
+            signal_tensor = self._ensure_length(signal_tensor)
 
         labels = torch.tensor(row[self.label_columns].values.astype(np.float32))
         labels = torch.where(labels < 0, torch.zeros_like(labels), labels)

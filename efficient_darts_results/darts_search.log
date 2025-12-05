@@ -1,0 +1,82 @@
+2025-12-04 11:30:23 - INFO - ================================================================================
+2025-12-04 11:30:23 - INFO - Starting Efficient DARTS Search
+2025-12-04 11:30:23 - INFO - Device: cuda
+2025-12-04 11:30:23 - INFO - Data path: D:\Sleep-Staging\csv-docs\cfs_visit5_selected.csv
+2025-12-04 11:30:23 - INFO - Dataset loaded: 730 total samples
+2025-12-04 11:30:23 - INFO - Train: 504, Val: 100, Test: 126
+2025-12-04 11:30:23 - INFO - Supernet created: 12,002,032 parameters
+2025-12-04 11:30:23 - INFO - Architecture: 4 cells, 3 nodes, 32 init channels
+2025-12-04 11:30:23 - INFO - Constraints: FLOPs=50000000, MACs=25000000, Params=500000
+2025-12-04 11:30:24 - INFO - Starting training...
+2025-12-04 11:35:21 - ERROR - Error at epoch 0: CUDA out of memory. Tried to allocate 376.00 MiB. GPU 0 has a total capacity of 4.00 GiB of which 0 bytes is free. Of the allocated memory 34.24 GiB is allocated by PyTorch, and 248.77 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+Traceback (most recent call last):
+  File "D:\Sleep-Staging\code\efficient_darts_search.py", line 314, in run_efficient_darts_search
+    train_metrics = trainer.train_epoch(epoch)
+  File "D:\Sleep-Staging\code\darts.py", line 232, in train_epoch
+    self.step(x_train, target_train, x_valid, target_valid)
+  File "D:\Sleep-Staging\code\efficient_darts_search.py", line 113, in step
+    logits_train = self.model(x_train)
+  File "C:\Users\geethalekshmy\AppData\Local\Programs\Python\Python310\lib\site-packages\torch\nn\modules\module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "C:\Users\geethalekshmy\AppData\Local\Programs\Python\Python310\lib\site-packages\torch\nn\modules\module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "D:\Sleep-Staging\code\nas_search_space.py", line 605, in forward
+    cell_output = cell(s0_proj, s1_proj, alpha[i])
+  File "C:\Users\geethalekshmy\AppData\Local\Programs\Python\Python310\lib\site-packages\torch\nn\modules\module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "C:\Users\geethalekshmy\AppData\Local\Programs\Python\Python310\lib\site-packages\torch\nn\modules\module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "D:\Sleep-Staging\code\nas_search_space.py", line 448, in forward
+    op_out = op(states[j])
+  File "C:\Users\geethalekshmy\AppData\Local\Programs\Python\Python310\lib\site-packages\torch\nn\modules\module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "C:\Users\geethalekshmy\AppData\Local\Programs\Python\Python310\lib\site-packages\torch\nn\modules\module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "D:\Sleep-Staging\code\nas_search_space.py", line 137, in forward
+    x = self.temporal_conv(x)  # (B, out_channels, L', C)
+  File "C:\Users\geethalekshmy\AppData\Local\Programs\Python\Python310\lib\site-packages\torch\nn\modules\module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "C:\Users\geethalekshmy\AppData\Local\Programs\Python\Python310\lib\site-packages\torch\nn\modules\module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "C:\Users\geethalekshmy\AppData\Local\Programs\Python\Python310\lib\site-packages\torch\nn\modules\conv.py", line 554, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+  File "C:\Users\geethalekshmy\AppData\Local\Programs\Python\Python310\lib\site-packages\torch\nn\modules\conv.py", line 549, in _conv_forward
+    return F.conv2d(
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 376.00 MiB. GPU 0 has a total capacity of 4.00 GiB of which 0 bytes is free. Of the allocated memory 34.24 GiB is allocated by PyTorch, and 248.77 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+2025-12-04 11:48:52 - INFO - ================================================================================
+2025-12-04 11:48:52 - INFO - Starting Efficient DARTS Search
+2025-12-04 11:48:52 - INFO - Device: cuda
+2025-12-04 11:48:52 - INFO - Data path: D:\Sleep-Staging\csv-docs\cfs_visit5_selected.csv
+2025-12-04 11:48:52 - INFO - Dataset loaded: 730 total samples
+2025-12-04 11:48:52 - INFO - Train: 504, Val: 100, Test: 126
+2025-12-04 11:48:52 - INFO - Supernet created: 1,454,753 parameters
+2025-12-04 11:48:52 - INFO - Architecture: 3 cells, 2 nodes, 24 init channels
+2025-12-04 11:50:41 - INFO - ================================================================================
+2025-12-04 11:50:41 - INFO - Starting Efficient DARTS Search
+2025-12-04 11:50:41 - INFO - Device: cuda
+2025-12-04 11:50:41 - INFO - Data path: D:\Sleep-Staging\csv-docs\cfs_visit5_selected.csv
+2025-12-04 11:50:41 - INFO - Dataset loaded: 730 total samples
+2025-12-04 11:50:41 - INFO - Train: 504, Val: 100, Test: 126
+2025-12-04 11:50:41 - INFO - Supernet created: 1,454,753 parameters
+2025-12-04 11:50:41 - INFO - Architecture: 3 cells, 2 nodes, 24 init channels
+2025-12-04 11:50:41 - ERROR - Error creating model: Input type (torch.cuda.FloatTensor) and weight type (torch.FloatTensor) should be the same
+2025-12-04 11:53:14 - INFO - ================================================================================
+2025-12-04 11:53:14 - INFO - Starting Efficient DARTS Search
+2025-12-04 11:53:14 - INFO - Device: cuda
+2025-12-04 11:53:14 - INFO - Data path: D:\Sleep-Staging\csv-docs\cfs_visit5_selected.csv
+2025-12-04 11:53:15 - INFO - Dataset loaded: 730 total samples
+2025-12-04 11:53:15 - INFO - Train: 504, Val: 100, Test: 126
+2025-12-04 11:53:15 - INFO - Supernet created: 1,454,753 parameters
+2025-12-04 11:53:15 - INFO - Architecture: 3 cells, 2 nodes, 24 init channels
+2025-12-04 11:53:15 - INFO - Constraints: FLOPs=50000000, MACs=25000000, Params=500000
+2025-12-04 11:53:16 - INFO - Starting training...
+2025-12-04 17:11:05 - INFO - ================================================================================
+2025-12-04 17:11:05 - INFO - Starting Efficient DARTS Search
+2025-12-04 17:11:05 - INFO - Device: cuda
+2025-12-04 17:11:05 - INFO - Data path: D:\Sleep-Staging\csv-docs\cfs_visit5_selected.csv
+2025-12-04 17:11:05 - INFO - Dataset loaded: 730 total samples
+2025-12-04 17:11:05 - INFO - Train: 504, Val: 100, Test: 126
+2025-12-04 17:11:05 - INFO - Supernet created: 1,454,753 parameters
+2025-12-04 17:11:05 - INFO - Architecture: 3 cells, 2 nodes, 24 init channels
+2025-12-04 17:11:05 - INFO - Constraints: FLOPs=50000000, MACs=25000000, Params=500000
+2025-12-04 17:11:06 - INFO - Starting training...

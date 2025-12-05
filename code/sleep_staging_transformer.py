@@ -1,9 +1,10 @@
 """
-Sleep Staging Transformer - Full Implementation
+Sleep Staging Transformer - Full Implementation (Updated)
 ===============================================
 
 A hierarchical transformer model for sleep stage classification using PSG data from EDF files.
 Includes data loading, feature extraction, training, validation, and checkpointing.
+Updated with enhanced preprocessing based on SOTA literature (e.g., SleepTransformer, IITNet).
 
 Author: Sleep Staging Team
 """
@@ -16,7 +17,7 @@ import math
 import random
 from pathlib import Path
 from collections import defaultdict
-from typing import Tuple, Optional, Dict, List
+from typing import Tuple, Optional, Dict, List, Set
 import json
 from datetime import datetime
 import xml.etree.ElementTree as ET
@@ -25,12 +26,13 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler, Subset
 from torch.optim import Adam, AdamW
-from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingLR
+from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingLR, OneCycleLR
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support, confusion_matrix
 from scipy import signal
-from scipy.signal import spectrogram
+from scipy.signal import stft
+from scipy.interpolate import interp1d
 
 # Suppress all warnings
 os.environ['MNE_LOGGING_LEVEL'] = 'ERROR'
@@ -238,23 +240,28 @@ class HierarchicalTransformerModel(nn.Module):
         )
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        batch_size, num_segments, time_steps, input_dim = x.shape
-        
-        # Reshape for local encoder
-        x = x.view(batch_size * num_segments, time_steps, input_dim)
-        
-        # Process each segment through local encoder
+        # x: (batch, segments, time_steps, channels, freq_bins)
+        batch_size, num_segments, time_steps, channels, freq_bins = x.shape
+
+        # Flatten channel × frequency → input_dim
+        x = x.view(batch_size, num_segments, time_steps, channels * freq_bins)
+
+        # Prepare for local encoder
+        # reshape: (batch * segments, time_steps, input_dim)
+        x = x.view(batch_size * num_segments, time_steps, channels * freq_bins)
+
+        # Local encoder
         local_embeddings = self.local_encoder(x)
-        
-        # Reshape back to sequence
+
+        # Reshape back: (batch, segments, hidden_dim)
         local_embeddings = local_embeddings.view(batch_size, num_segments, -1)
-        
-        # Process through global encoder
+
+        # Global encoder
         global_embeddings = self.global_encoder(local_embeddings)
-        
-        # Apply prediction head
+
+        # Prediction per segment
         predictions = self.prediction_head(global_embeddings)
-        
+
         return predictions
 
 
@@ -262,338 +269,13 @@ class HierarchicalTransformerModel(nn.Module):
 # Data Loading and Preprocessing
 # ============================================================================
 
-class SleepEDFDataset(Dataset):
-    """
-    Dataset for loading and processing Sleep-EDF database files.
-    Each sample consists of a sequence of 30-second epochs (segments).
-    """
-    
-    def __init__(
-        self,
-        folder_path: str,
-        segment_size: int = 10,  # Number of consecutive epochs per sample
-        epoch_seconds: int = 30,
-        target_fs: int = 100,
-        use_spectrogram: bool = True,
-        nfft: int = 256,
-        overlap: int = 128,
-        channels: Optional[List[str]] = None,
-        filter_unscored: bool = True
-    ):
-        self.folder_path = folder_path
-        self.segment_size = segment_size
-        self.epoch_seconds = epoch_seconds
-        self.target_fs = target_fs
-        self.use_spectrogram = use_spectrogram
-        self.nfft = nfft
-        self.overlap = overlap
-        self.filter_unscored = filter_unscored
-        
-        # Sleep stage mapping
-        self.stage_mapping = {
-            'Sleep stage W': 0,
-            'Sleep stage R': 1,
-            'Sleep stage 1': 2,
-            'Sleep stage 2': 3,
-            'Sleep stage 3': 4,
-            'Sleep stage 4': 5,
-            'Sleep stage ?': 6  # Unscored
-        }
-        self.num_classes = 6 if filter_unscored else 7
-        
-        # Default channels (7 PSG channels)
-        self.channels = channels or [
-            'EEG Fpz-Cz', 'EEG Pz-Oz', 'EOG horizontal', 
-            'EMG submental', 'Temp rectal', 'Resp oro-nasal', 'Event marker'
-        ]
-        
-        # Prepare data index
-        self.samples = []
-        self.sfreq_cache = {}
-        self._prepare_index()
-        
-        print_debug(f"Dataset initialized with {len(self.samples)} samples", "INFO")
-        print_debug(f"Number of classes: {self.num_classes}", "INFO")
-    
-    def _find_annotation_file(self, psg_filename: str) -> Optional[str]:
-        """Find corresponding hypnogram file for a PSG file"""
-        base = psg_filename[:6]
-        pattern = re.compile(rf'{base}..-Hypnogram.edf')
-        for f in os.listdir(self.folder_path):
-            if pattern.fullmatch(f):
-                return os.path.join(self.folder_path, f)
-        return None
-    
-    def _prepare_index(self):
-        """Prepare index of all valid samples (sequences of consecutive epochs)"""
-        print_debug("Preparing dataset index...", "INFO")
-        
-        # First pass: collect all epochs with their file, start sample, and label
-        all_epochs = []
-        
-        for psg_file in os.listdir(self.folder_path):
-            if not psg_file.endswith('-PSG.edf'):
-                continue
-            
-            psg_path = os.path.join(self.folder_path, psg_file)
-            hyp_path = self._find_annotation_file(psg_file)
-            
-            if not hyp_path:
-                print_debug(f"No annotation file for {psg_file}, skipping", "WARNING")
-                continue
-            
-            try:
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    raw = mne.io.read_raw_edf(psg_path, preload=False, verbose=False)
-                    sfreq = int(raw.info['sfreq'])
-                    self.sfreq_cache[psg_file] = sfreq
-                    
-                    annotations = mne.read_annotations(hyp_path)
-                    
-                    epoch_samples = int(self.epoch_seconds * sfreq)
-                    
-                    for desc, onset, duration in zip(
-                        annotations.description, 
-                        annotations.onset, 
-                        annotations.duration
-                    ):
-                        label = self.stage_mapping.get(desc, 6)
-                        
-                        # Filter unscored if requested
-                        if self.filter_unscored and label == 6:
-                            continue
-                        
-                        full_epochs = int(duration // self.epoch_seconds)
-                        start_sample = int(onset * sfreq)
-                        
-                        for i in range(full_epochs):
-                            epoch_start = start_sample + i * epoch_samples
-                            epoch_end = epoch_start + epoch_samples
-                            
-                            if epoch_end <= raw.n_times:
-                                all_epochs.append((psg_file, epoch_start, label))
-                    
-            except Exception as e:
-                print_debug(f"Error processing {psg_file}: {e}", "ERROR")
-                continue
-        
-        # Second pass: group consecutive epochs into samples
-        print_debug(f"Found {len(all_epochs)} individual epochs", "INFO")
-        print_debug(f"Creating samples of {self.segment_size} consecutive epochs", "INFO")
-        
-        # Group by file and sort by start sample
-        epochs_by_file = defaultdict(list)
-        for psg_file, start_sample, label in all_epochs:
-            epochs_by_file[psg_file].append((start_sample, label))
-        
-        for psg_file, epochs in epochs_by_file.items():
-            epochs.sort(key=lambda x: x[0])
-            sfreq = self.sfreq_cache[psg_file]
-            epoch_samples = int(self.epoch_seconds * sfreq)
-            
-            # Create sequences of consecutive epochs
-            for i in range(len(epochs) - self.segment_size + 1):
-                sequence = epochs[i:i + self.segment_size]
-                
-                # Check if epochs are consecutive (within tolerance)
-                is_consecutive = True
-                for j in range(1, len(sequence)):
-                    expected_start = sequence[j-1][0] + epoch_samples
-                    actual_start = sequence[j][0]
-                    if abs(expected_start - actual_start) > epoch_samples // 2:
-                        is_consecutive = False
-                        break
-                
-                if is_consecutive:
-                    start_samples = [s[0] for s in sequence]
-                    labels = [s[1] for s in sequence]
-                    self.samples.append((psg_file, start_samples, labels))
-        
-        print_debug(f"Created {len(self.samples)} valid samples", "SUCCESS")
-        self._balance_samples()
-
-    def _balance_samples(self):
-        """Downsample classes so each has equal number of segments"""
-        if not self.samples:
-            return
-
-        print_debug("Balancing class distribution across samples...", "INFO")
-
-        sample_entries = []
-        class_segment_counts = defaultdict(int)
-
-        for sample in self.samples:
-            _, _, labels = sample
-            label_counts = defaultdict(int)
-            for label in labels:
-                label_counts[label] += 1
-                class_segment_counts[label] += 1
-            sample_entries.append((*sample, label_counts))
-
-        if not class_segment_counts:
-            return
-
-        target_count = min(class_segment_counts.values())
-        print_debug(f"Target segments per class: {target_count}", "INFO")
-
-        target_per_class = {label: target_count for label in class_segment_counts}
-        random.shuffle(sample_entries)
-
-        balanced_samples = []
-        running_counts = defaultdict(int)
-
-        for entry in sample_entries:
-            psg_file, start_samples, labels, label_counts = entry
-
-            can_add = True
-            for label, count in label_counts.items():
-                if running_counts[label] + count > target_per_class[label]:
-                    can_add = False
-                    break
-
-            if not can_add:
-                continue
-
-            balanced_samples.append((psg_file, start_samples, labels))
-            for label, count in label_counts.items():
-                running_counts[label] += count
-
-            if all(running_counts[label] >= target_per_class[label] for label in target_per_class):
-                break
-
-        self.samples = balanced_samples
-
-        for label, count in running_counts.items():
-            print_debug(f"Class {label}: {count} segments", "INFO")
-
-        print_debug(f"Balanced samples: {len(self.samples)}", "SUCCESS")
-    
-    def _compute_spectrogram(self, signal_data: np.ndarray, fs: int) -> np.ndarray:
-        """Compute spectrogram for a signal with fixed frequency resolution"""
-        # Compute spectrogram with fixed parameters
-        # All signals are resampled to target_fs=100, so frequency resolution is consistent
-        f, t, Sxx = spectrogram(
-            signal_data, 
-            fs=fs, 
-            nperseg=self.nfft, 
-            noverlap=self.overlap,
-            mode='magnitude'
-        )
-        
-        # Fixed number of frequency bins: nfft//2 + 1 (standard for real signals)
-        # But we'll limit to 0-30 Hz for sleep staging relevance
-        total_freq_bins = self.nfft // 2 + 1
-        freq_resolution = fs / self.nfft  # Frequency resolution in Hz
-        max_freq_idx = int(30.0 / freq_resolution) + 1  # Index for 30 Hz
-        max_freq_idx = min(max_freq_idx, total_freq_bins)
-        
-        # Extract frequencies up to 30 Hz
-        Sxx = Sxx[:max_freq_idx, :]
-        
-        # Ensure consistent size by using a fixed number of bins
-        # Use the maximum possible number of bins for 0-30 Hz at target_fs
-        # This ensures all spectrograms have the same shape
-        target_freq_bins = int(30.0 * self.nfft / self.target_fs) + 1
-        target_freq_bins = min(target_freq_bins, total_freq_bins)
-        
-        # Pad or truncate to ensure consistent dimensions
-        if Sxx.shape[0] < target_freq_bins:
-            # Pad with very small values (not zeros to avoid issues)
-            padding = np.full((target_freq_bins - Sxx.shape[0], Sxx.shape[1]), 1e-10)
-            Sxx = np.vstack([Sxx, padding])
-        elif Sxx.shape[0] > target_freq_bins:
-            # Truncate to target size
-            Sxx = Sxx[:target_freq_bins, :]
-        
-        # Log scale and transpose: (time_steps, freq_bins)
-        Sxx = np.log1p(Sxx + 1e-10)  # Add small epsilon to avoid log(0)
-        return Sxx.T  # (time_steps, freq_bins)
-    
-    def _load_epoch(self, psg_file: str, start_sample: int) -> np.ndarray:
-        """Load a single epoch from a PSG file"""
-        psg_path = os.path.join(self.folder_path, psg_file)
-        sfreq = self.sfreq_cache[psg_file]
-        epoch_samples = int(self.epoch_seconds * sfreq)
-        target_samples = int(self.epoch_seconds * self.target_fs)
-        
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            raw = mne.io.read_raw_edf(psg_path, preload=False, verbose=False)
-            
-            # Pick available channels
-            available_channels = [ch for ch in self.channels if ch in raw.ch_names]
-            if len(available_channels) == 0:
-                available_channels = raw.ch_names[:min(len(raw.ch_names), 7)]
-            
-            raw.pick(available_channels)
-            
-            # Load data
-            if start_sample + epoch_samples > raw.n_times:
-                data, _ = raw[:, start_sample:]
-                padding_size = epoch_samples - data.shape[1]
-                if padding_size > 0:
-                    padding = np.zeros((data.shape[0], padding_size))
-                    data = np.concatenate([data, padding], axis=1)
-            else:
-                data, _ = raw[:, start_sample:start_sample + epoch_samples]
-            
-            # Resample if needed
-            if sfreq != self.target_fs:
-                resampled_data = []
-                for ch_data in data:
-                    resampled = signal.resample(ch_data, target_samples)
-                    resampled_data.append(resampled)
-                data = np.array(resampled_data)
-            else:
-                data = data[:, :target_samples]
-        
-        return data
-    
-    def __len__(self) -> int:
-        return len(self.samples)
-    
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Get a sample: sequence of epochs with their labels"""
-        psg_file, start_samples, labels = self.samples[idx]
-        
-        epochs_features = []
-        
-        for start_sample in start_samples:
-            # Load epoch data
-            epoch_data = self._load_epoch(psg_file, start_sample)
-            # epoch_data shape: (channels, time_samples)
-            
-            if self.use_spectrogram:
-                # Compute spectrogram for each channel and concatenate
-                channel_features = []
-                for ch_data in epoch_data:
-                    spec = self._compute_spectrogram(ch_data, self.target_fs)
-                    channel_features.append(spec)
-                # Concatenate all channel spectrograms
-                features = np.concatenate(channel_features, axis=1)
-                # features shape: (time_steps, freq_bins * channels)
-            else:
-                # Use raw signal (transpose to time_steps, channels)
-                features = epoch_data.T
-            
-            epochs_features.append(features)
-        
-        # Stack epochs: (segment_size, time_steps, feature_dim)
-        features_array = np.stack(epochs_features, axis=0)
-        
-        # Convert to tensor
-        features_tensor = torch.FloatTensor(features_array)
-        labels_tensor = torch.LongTensor(labels)
-        
-        return features_tensor, labels_tensor
-
 
 class CFSSleepStagingDataset(Dataset):
     """
     Dataset for loading and processing CFS (Chronic Fatigue Syndrome) database files.
     Each sample consists of a sequence of 30-second epochs (segments).
     Skips initial wake stages at the beginning of recordings.
+    Updated with enhanced spectrogram computation based on SOTA literature.
     """
     
     def __init__(
@@ -604,11 +286,19 @@ class CFSSleepStagingDataset(Dataset):
         epoch_seconds: int = 30,
         target_fs: int = 100,
         use_spectrogram: bool = True,
-        nfft: int = 256,
-        overlap: int = 128,
+        nfft: int = 1024,  # Updated: Higher resolution
+        overlap: int = 924,  # Updated: For 1s hop (100 samples at 100Hz)
         channels: Optional[List[str]] = None,
         filter_unscored: bool = True,
-        skip_initial_wake: bool = True
+        skip_initial_wake: bool = True,
+        balance_classes: bool = False,
+        apply_channel_normalization: bool = True,
+        feature_normalization: bool = True,
+        spec_augment_prob: float = 0.0,
+        time_mask_param: int = 10,
+        freq_mask_param: int = 10,
+        max_time_masks: int = 2,
+        max_freq_masks: int = 2
     ):
         self.edf_folder_path = edf_folder_path
         self.annotation_folder_path = annotation_folder_path
@@ -620,33 +310,42 @@ class CFSSleepStagingDataset(Dataset):
         self.overlap = overlap
         self.filter_unscored = filter_unscored
         self.skip_initial_wake = skip_initial_wake
+        self.balance_classes = balance_classes
+        self.apply_channel_normalization = apply_channel_normalization
+        self.feature_normalization = feature_normalization
+        self.spec_augment_prob = spec_augment_prob
+        self.time_mask_param = time_mask_param
+        self.freq_mask_param = freq_mask_param
+        self.max_time_masks = max_time_masks
+        self.max_freq_masks = max_freq_masks
+        self.augment_indices: Set[int] = set()
         
-        # CFS Sleep stage mapping (Wake is excluded, so we have 5 classes)
-        # Original CFS mapping: Wake|0=0, Stage 1|1=1, Stage 2|2=2, Stage 3|3=3, Stage 4|4=4, REM|5=5, Unscored|9=6
-        # New mapping (skipping wake): R=0, Stage 1=1, Stage 2=2, Stage 3=3, Stage 4=4
+        # Original CFS stage mapping: keep full mapping (including Wake)
+        # Keys are the annotation strings found in XML -> integer labels
         self.original_stage_mapping = {
             "Wake|0": 0,
             "Stage 1 sleep|1": 1,
             "Stage 2 sleep|2": 2,
             "Stage 3 sleep|3": 3,
             "Stage 4 sleep|4": 4,
-            "REM sleep|5": 5,
-            "Unscored|9": 6
+            "REM sleep|5": 5
         }
+
+        # Use the original mapping for labels by default. We will only optionally
+        # clip initial wake epochs (skip them at the start) but keep Wake label (0)
+        # for epochs occurring after sleep onset.
+        self.stage_mapping = self.original_stage_mapping.copy()
+
+        # Number of classes: keep full 6-class space (0..5)
+        self.num_classes = 6
+
+        # Human-readable class names in label order (0..5)
+        self.class_names = ['W', '1', '2', '3', '4', 'R']
         
-        # Remapped stages (excluding wake): R=0, 1=1, 2=2, 3=3, 4=4
-        self.stage_mapping = {
-            "REM sleep|5": 0,
-            "Stage 1 sleep|1": 1,
-            "Stage 2 sleep|2": 2,
-            "Stage 3 sleep|3": 3,
-            "Stage 4 sleep|4": 4,
-            "Unscored|9": 6  # Will be filtered if filter_unscored is True
-        }
-        self.num_classes = 5  # R, 1, 2, 3, 4 (no wake)
-        
-        # Default channels - adjust based on CFS data
-        self.channels = channels or None  # Will auto-detect if None
+        # Standard channels for sleep staging (updated to use differential/bipolar)
+        self.channels = channels or [
+            'EEG C3-M2', 'EEG C4-M1', 'EOG LOC-M2', 'EOG ROC-M1', 'EMG Chin'
+        ]  # Updated: Standard PSG channels; will check availability
         
         # Prepare data index
         self.samples = []
@@ -654,7 +353,7 @@ class CFSSleepStagingDataset(Dataset):
         self._prepare_index()
         
         print_debug(f"Dataset initialized with {len(self.samples)} samples", "INFO")
-        print_debug(f"Number of classes: {self.num_classes} (R, 1, 2, 3, 4)", "INFO")
+        print_debug(f"Number of classes: {self.num_classes} (W, 1, 2, 3, 4, R)", "INFO")
     
     def _parse_xml_annotations(self, xml_path: str) -> Optional[mne.Annotations]:
         """Parse XML annotation file and return MNE Annotations"""
@@ -751,35 +450,37 @@ class CFSSleepStagingDataset(Dataset):
                     sleep_started = False
                     
                     for desc, onset, duration in zip(
-                        annotations.description, 
-                        annotations.onset, 
+                        annotations.description,
+                        annotations.onset,
                         annotations.duration
                     ):
                         original_label = self.original_stage_mapping.get(desc, 6)
                         full_epochs = int(duration // self.epoch_seconds)
                         start_sample = int(onset * sfreq)
-                        
-                        # Skip wake stages
-                        if original_label == 0:  # Wake
-                            if self.skip_initial_wake and not sleep_started:
-                                initial_wake_epochs += full_epochs
-                            continue
-                        
+
                         # Filter unscored if requested
                         if self.filter_unscored and original_label == 6:
                             continue
-                        
-                        # Map to new label (excluding wake)
-                        if desc in self.stage_mapping:
-                            label = self.stage_mapping[desc]
-                            sleep_started = True
+
+                        # Handle wake epochs:
+                        # - If skipping initial wake and we haven't seen sleep yet, count
+                        #   these epochs as clipped and do not include them.
+                        # - Otherwise include wake epochs with label 0.
+                        if original_label == 0:
+                            if self.skip_initial_wake and not sleep_started:
+                                initial_wake_epochs += full_epochs
+                                continue
+                            label = 0
+                            # do not set sleep_started = True for wake
                         else:
-                            continue
-                        
+                            # Non-wake stage: keep original label and mark sleep started
+                            label = original_label
+                            sleep_started = True
+
                         for i in range(full_epochs):
                             epoch_start = start_sample + i * epoch_samples
                             epoch_end = epoch_start + epoch_samples
-                            
+
                             if epoch_end <= raw.n_times:
                                 file_epochs.append((epoch_start, label))
                     
@@ -842,7 +543,8 @@ class CFSSleepStagingDataset(Dataset):
                     self.samples.append((edf_file, start_samples, labels))
         
         print_debug(f"Created {len(self.samples)} valid samples", "SUCCESS")
-        self._balance_samples()
+        if self.balance_classes:
+            self._balance_samples()
     
     def _balance_samples(self):
         """Downsample classes so each has equal number of segments"""
@@ -896,48 +598,45 @@ class CFSSleepStagingDataset(Dataset):
         self.samples = balanced_samples
 
         for label, count in running_counts.items():
-            stage_name = ['R', '1', '2', '3', '4'][label] if label < 5 else 'Unknown'
+            stage_name = ['W', '1', '2', '3', '4', 'R', 'U'][label]
             print_debug(f"Class {stage_name} ({label}): {count} segments", "INFO")
 
         print_debug(f"Balanced samples: {len(self.samples)}", "SUCCESS")
     
     def _compute_spectrogram(self, signal_data: np.ndarray, fs: int) -> np.ndarray:
-        """Compute spectrogram for a signal with fixed frequency resolution"""
-        # Compute spectrogram with fixed parameters
-        f, t, Sxx = spectrogram(
-            signal_data, 
-            fs=fs, 
-            nperseg=self.nfft, 
-            noverlap=self.overlap,
-            mode='magnitude'
-        )
+        """Enhanced spectrogram computation: high-res STFT, dB scale, fixed freq grid, robust scaling"""
+        n_channels = signal_data.shape[0]
+        features = []
         
-        # Fixed number of frequency bins: nfft//2 + 1 (standard for real signals)
-        # But we'll limit to 0-30 Hz for sleep staging relevance
-        total_freq_bins = self.nfft // 2 + 1
-        freq_resolution = fs / self.nfft  # Frequency resolution in Hz
-        max_freq_idx = int(30.0 / freq_resolution) + 1  # Index for 30 Hz
-        max_freq_idx = min(max_freq_idx, total_freq_bins)
+        target_freqs = np.linspace(0.5, 40.0, 128)  # Fixed: 128 bins from 0.5-40 Hz
         
-        # Extract frequencies up to 30 Hz
-        Sxx = Sxx[:max_freq_idx, :]
+        for ch_idx in range(n_channels):
+            x = signal_data[ch_idx]
+            
+            # High-res STFT (nfft=1024, hop=100 for 1s steps at 100Hz)
+            f, t, Zxx = stft(
+                x, fs=fs, nperseg=self.nfft, noverlap=self.overlap,
+                window='hann', boundary=None, padded=False
+            )
+            power = np.abs(Zxx)**2
+            log_power = 10 * np.log10(power + 1e-12)  # dB scale
+            
+            # Interpolate to fixed frequency grid
+            interp_func = interp1d(f, log_power, axis=0, kind='linear',
+                                   bounds_error=False, fill_value=-10)
+            log_power_fixed = interp_func(target_freqs)  # (128, time_bins)
+            
+            features.append(log_power_fixed)
         
-        # Ensure consistent size by using a fixed number of bins
-        target_freq_bins = int(30.0 * self.nfft / self.target_fs) + 1
-        target_freq_bins = min(target_freq_bins, total_freq_bins)
+        spec = np.stack(features, axis=0)  # (n_channels, 128, time_bins)
         
-        # Pad or truncate to ensure consistent dimensions
-        if Sxx.shape[0] < target_freq_bins:
-            # Pad with very small values (not zeros to avoid issues)
-            padding = np.full((target_freq_bins - Sxx.shape[0], Sxx.shape[1]), 1e-10)
-            Sxx = np.vstack([Sxx, padding])
-        elif Sxx.shape[0] > target_freq_bins:
-            # Truncate to target size
-            Sxx = Sxx[:target_freq_bins, :]
+        # Robust scaling (median/IQR) per channel
+        median = np.median(spec, axis=(1, 2), keepdims=True)
+        q75 = np.percentile(spec, 75, axis=(1, 2), keepdims=True)
+        q25 = np.percentile(spec, 25, axis=(1, 2), keepdims=True)
+        spec = (spec - median) / (q75 - q25 + 1e-8)
         
-        # Log scale and transpose: (time_steps, freq_bins)
-        Sxx = np.log1p(Sxx + 1e-10)  # Add small epsilon to avoid log(0)
-        return Sxx.T  # (time_steps, freq_bins)
+        return spec.transpose(2, 0, 1)  # (time_bins, n_channels, 128) for model input
     
     def _load_epoch(self, edf_file: str, start_sample: int) -> np.ndarray:
         """Load a single epoch from an EDF file"""
@@ -950,20 +649,10 @@ class CFSSleepStagingDataset(Dataset):
             warnings.simplefilter("ignore")
             raw = mne.io.read_raw_edf(edf_path, preload=False, verbose=False)
             
-            # Pick available channels
-            if self.channels:
-                available_channels = [ch for ch in self.channels if ch in raw.ch_names]
-            else:
-                # Auto-detect: prefer EEG channels
-                available_channels = [ch for ch in raw.ch_names if 'EEG' in ch or 'EEG' in ch.upper()]
-                if len(available_channels) == 0:
-                    available_channels = raw.ch_names[:min(len(raw.ch_names), 7)]
-                else:
-                    available_channels = available_channels[:min(len(available_channels), 7)]
-            
-            if len(available_channels) == 0:
-                available_channels = raw.ch_names[:min(len(raw.ch_names), 7)]
-            
+            # Pick available channels (prefer standard PSG channels)
+            available_channels = [ch for ch in self.channels if ch in raw.ch_names]
+            if not available_channels:
+                available_channels = raw.ch_names[:min(len(raw.ch_names), len(self.channels))]
             raw.pick(available_channels)
             
             # Load data
@@ -1001,30 +690,123 @@ class CFSSleepStagingDataset(Dataset):
             # Load epoch data
             epoch_data = self._load_epoch(edf_file, start_sample)
             # epoch_data shape: (channels, time_samples)
+            if self.apply_channel_normalization:
+                epoch_data = self._normalize_epoch_signal(epoch_data)
             
             if self.use_spectrogram:
-                # Compute spectrogram for each channel and concatenate
-                channel_features = []
-                for ch_data in epoch_data:
-                    spec = self._compute_spectrogram(ch_data, self.target_fs)
-                    channel_features.append(spec)
-                # Concatenate all channel spectrograms
-                features = np.concatenate(channel_features, axis=1)
-                # features shape: (time_steps, freq_bins * channels)
+                # Compute enhanced spectrogram
+                features = self._compute_spectrogram(epoch_data, self.target_fs)
+                # features shape: (time_steps, channels, freq_bins)
             else:
                 # Use raw signal (transpose to time_steps, channels)
                 features = epoch_data.T
             
             epochs_features.append(features)
         
-        # Stack epochs: (segment_size, time_steps, feature_dim)
+        # Stack epochs: (segment_size, time_steps, channels, freq_bins)
         features_array = np.stack(epochs_features, axis=0)
+        if self.feature_normalization:
+            features_array = self._normalize_features(features_array)
+        if self._should_augment(idx):
+            features_array = self._apply_spec_augment(features_array)
         
         # Convert to tensor
         features_tensor = torch.FloatTensor(features_array)
         labels_tensor = torch.LongTensor(labels)
         
         return features_tensor, labels_tensor
+
+    def set_augmentation_indices(self, indices: List[int]):
+        """Mark dataset indices eligible for data augmentation."""
+        self.augment_indices = set(indices)
+
+    def _should_augment(self, idx: int) -> bool:
+        if self.spec_augment_prob <= 0.0 or not self.augment_indices:
+            return False
+        if idx not in self.augment_indices:
+            return False
+        return random.random() < self.spec_augment_prob
+
+    def _normalize_epoch_signal(self, epoch_data: np.ndarray) -> np.ndarray:
+        """Per-channel z-score normalization."""
+        mean = epoch_data.mean(axis=1, keepdims=True)
+        std = epoch_data.std(axis=1, keepdims=True) + 1e-8
+        return (epoch_data - mean) / std
+
+    def _normalize_features(self, features: np.ndarray) -> np.ndarray:
+        """Normalize spectrogram features per sample."""
+        mean = features.mean(axis=(0, 1, 2), keepdims=True)
+        std = features.std(axis=(0, 1, 2), keepdims=True) + 1e-6
+        return (features - mean) / std
+
+    def _apply_spec_augment(self, features: np.ndarray) -> np.ndarray:
+        """Apply SpecAugment-style time and frequency masking (adapted for 3D input)."""
+        augmented = features.copy()
+        num_epochs, time_steps, n_channels, freq_bins = augmented.shape
+        for epoch_idx in range(num_epochs):
+            for ch_idx in range(n_channels):
+                epoch_feat = augmented[epoch_idx, :, ch_idx, :]  # (time, freq)
+
+                # Time masks
+                for _ in range(self.max_time_masks):
+                    t = random.randint(0, max(0, self.time_mask_param))
+                    if t == 0 or t >= time_steps:
+                        continue
+                    t0 = random.randint(0, max(0, time_steps - t))
+                    epoch_feat[t0:t0 + t, :] = 0.0
+
+                # Frequency masks
+                for _ in range(self.max_freq_masks):
+                    f = random.randint(0, max(0, self.freq_mask_param))
+                    if f == 0 or f >= freq_bins:
+                        continue
+                    f0 = random.randint(0, max(0, freq_bins - f))
+                    epoch_feat[:, f0:f0 + f] = 0.0
+
+                augmented[epoch_idx, :, ch_idx, :] = epoch_feat
+        return augmented
+
+
+def compute_class_distribution(dataset: CFSSleepStagingDataset, subset_indices: List[int]) -> torch.Tensor:
+    """Count per-class segment occurrences for a subset of samples."""
+    counts = torch.zeros(dataset.num_classes, dtype=torch.long)
+    for idx in subset_indices:
+        _, _, labels = dataset.samples[idx]
+        for label in labels:
+            if 0 <= label < dataset.num_classes:
+                counts[label] += 1
+    return counts
+
+
+def compute_class_weights(class_counts: torch.Tensor, epsilon: float = 1e-3) -> torch.Tensor:
+    """Convert class counts into normalized inverse-frequency weights."""
+    counts = class_counts.float().clamp_min(epsilon)
+    total = counts.sum()
+    num_classes = counts.numel()
+    weights = total / (counts * num_classes)
+    # Normalize to keep average weight == 1 for stable loss scaling
+    return weights / weights.mean()
+
+
+def build_sample_weights(dataset: CFSSleepStagingDataset, subset_indices: List[int], class_weights: torch.Tensor) -> torch.DoubleTensor:
+    """Create per-sample weights by averaging constituent label weights."""
+    weights = []
+    for idx in subset_indices:
+        _, _, labels = dataset.samples[idx]
+        if labels:
+            label_tensor = torch.tensor(labels, dtype=torch.long)
+            label_weights = class_weights[label_tensor].mean()
+        else:
+            label_weights = class_weights.mean()
+        weights.append(label_weights.item())
+    return torch.DoubleTensor(weights)
+
+
+def get_subset_indices(subset) -> List[int]:
+    """Return the indices that back a dataset or subset."""
+    if isinstance(subset, Subset):
+        return subset.indices
+    return list(range(len(subset)))
 
 
 # ============================================================================
@@ -1101,7 +883,7 @@ class CheckpointManager:
         return checkpoint['epoch'], checkpoint.get('metadata', {})
 
 
-def train_epoch(model, dataloader, optimizer, criterion, device, epoch: int):
+def train_epoch(model, dataloader, optimizer, criterion, device, epoch: int, scheduler=None, scheduler_step_per_batch: bool = False, confidence_penalty: float = 0.0):
     """Train for one epoch"""
     model.train()
     total_loss = 0.0
@@ -1109,7 +891,7 @@ def train_epoch(model, dataloader, optimizer, criterion, device, epoch: int):
     all_labels = []
     
     for batch_idx, (features, labels) in enumerate(dataloader):
-        features = features.to(device)  # (batch, segments, time, features)
+        features = features.to(device)  # (batch, segments, time, channels, freq)
         labels = labels.to(device)  # (batch, segments)
         
         # Forward pass
@@ -1121,12 +903,20 @@ def train_epoch(model, dataloader, optimizer, criterion, device, epoch: int):
         logits_flat = logits.view(-1, num_classes)
         labels_flat = labels.view(-1)
         
-        loss = criterion(logits_flat, labels_flat)
+        ce_loss = criterion(logits_flat, labels_flat)
+        if confidence_penalty > 0.0:
+            log_probs = F.log_softmax(logits_flat, dim=1)
+            entropy = -(log_probs.exp() * log_probs).sum(dim=1).mean()
+            loss = ce_loss - confidence_penalty * entropy
+        else:
+            loss = ce_loss
         
         # Backward pass
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         optimizer.step()
+        if scheduler and scheduler_step_per_batch:
+            scheduler.step()
         
         # Statistics
         total_loss += loss.item()
@@ -1185,7 +975,12 @@ def validate_epoch(model, dataloader, criterion, device, epoch: int):
     )
     
     # Print per-class metrics
-    class_names = ['R', '1', '2', '3', '4']  # No wake stage
+    # Determine class names from dataloader.dataset if available, else default to 6-class mapping
+    if hasattr(dataloader, 'dataset') and hasattr(dataloader.dataset, 'class_names'):
+        class_names = dataloader.dataset.class_names
+    else:
+        class_names = ['W', '1', '2', '3', '4', 'R']
+
     print_debug("Per-class metrics:", "VAL")
     for i, name in enumerate(class_names):
         if i < len(precision):
@@ -1202,8 +997,8 @@ def train_model(
     edf_folder_path: str,
     annotation_folder_path: str,
     num_epochs: int = 50,
-    batch_size: int = 8,
-    learning_rate: float = 1e-4,
+    batch_size: int = 32,
+    learning_rate: float = 3e-4,
     segment_size: int = 10,
     hidden_dim: int = 256,
     num_heads: int = 8,
@@ -1212,7 +1007,18 @@ def train_model(
     dropout: float = 0.1,
     checkpoint_dir: str = "checkpoints",
     resume_from: Optional[str] = None,
-    device: Optional[str] = None
+    device: Optional[str] = None,
+    balance_classes: bool = False,
+    label_smoothing: float = 0.05,
+    confidence_penalty: float = 0.02,
+    scheduler_type: str = "one_cycle",
+    spec_augment_prob: float = 0.5,
+    time_mask_param: int = 12,
+    freq_mask_param: int = 24,
+    max_time_masks: int = 2,
+    max_freq_masks: int = 2,
+    apply_channel_normalization: bool = True,
+    feature_normalization: bool = True
 ):
     """Main training function"""
     
@@ -1229,7 +1035,15 @@ def train_model(
         segment_size=segment_size,
         use_spectrogram=True,
         filter_unscored=True,
-        skip_initial_wake=True
+        skip_initial_wake=True,
+        balance_classes=balance_classes,
+        apply_channel_normalization=apply_channel_normalization,
+        feature_normalization=feature_normalization,
+        spec_augment_prob=spec_augment_prob,
+        time_mask_param=time_mask_param,
+        freq_mask_param=freq_mask_param,
+        max_time_masks=max_time_masks,
+        max_freq_masks=max_freq_masks
     )
     
     # Split dataset (80% train, 20% val)
@@ -1242,12 +1056,47 @@ def train_model(
     
     print_debug(f"Train samples: {len(train_dataset)}", "INFO")
     print_debug(f"Validation samples: {len(val_dataset)}", "INFO")
+
+    train_indices = get_subset_indices(train_dataset)
+    val_indices = get_subset_indices(val_dataset)
+
+    train_class_counts = compute_class_distribution(full_dataset, train_indices)
+    val_class_counts = compute_class_distribution(full_dataset, val_indices)
+
+    def log_distribution(name: str, counts: torch.Tensor):
+        total = counts.sum().item()
+        if total == 0:
+            print_debug(f"{name} has zero labeled segments", "WARNING")
+            return
+        print_debug(f"{name} class distribution (segments):", "INFO")
+        for i, count in enumerate(counts):
+            class_name = full_dataset.class_names[i] if i < len(full_dataset.class_names) else f"Class {i}"
+            pct = (count.item() / total) * 100
+            print_debug(f"  {class_name}: {count.item()} ({pct:.2f}%)", "INFO")
+
+    log_distribution("Train", train_class_counts)
+    log_distribution("Validation", val_class_counts)
+
+    full_dataset.set_augmentation_indices(train_indices)
+
+    class_weights = compute_class_weights(train_class_counts)
+    print_debug(f"Using class weights: {class_weights.tolist()}", "INFO")
+
+    train_sampler = None
+    if len(train_indices) > 0:
+        sample_weights = build_sample_weights(full_dataset, train_indices, class_weights)
+        train_sampler = WeightedRandomSampler(
+            sample_weights,
+            num_samples=len(sample_weights),
+            replacement=True
+        )
     
     # Create data loaders
     train_loader = DataLoader(
         train_dataset, 
         batch_size=batch_size, 
-        shuffle=True,
+        shuffle=train_sampler is None,
+        sampler=train_sampler,
         num_workers=2,
         pin_memory=True if torch.cuda.is_available() else False
     )
@@ -1261,8 +1110,9 @@ def train_model(
     
     # Get input dimension from a sample
     sample_features, _ = train_dataset[0]
-    _, time_steps, input_dim = sample_features.shape
-    print_debug(f"Input shape: (segments={segment_size}, time_steps={time_steps}, features={input_dim})", "INFO")
+    _, time_steps, n_channels, freq_bins = sample_features.shape
+    input_dim = n_channels * freq_bins  # Flatten channels and freq for transformer input
+    print_debug(f"Input shape: (segments={segment_size}, time_steps={time_steps}, input_dim={input_dim})", "INFO")
     
     # Create model
     print_debug("Creating model...", "INFO")
@@ -1281,9 +1131,37 @@ def train_model(
     print_debug(f"Model parameters: {num_params:,}", "INFO")
     
     # Loss and optimizer
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss(
+        weight=class_weights.to(device),
+        label_smoothing=label_smoothing
+    )
     optimizer = AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-5)
-    scheduler = ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=5)
+    scheduler = None
+    scheduler_step_per_batch = False
+    scheduler_name = (scheduler_type or "one_cycle").lower()
+    steps_per_epoch = len(train_loader)
+
+    if scheduler_name == "one_cycle":
+        if steps_per_epoch == 0:
+            print_debug("OneCycleLR skipped because training loader is empty", "WARNING")
+            scheduler = None
+        else:
+            scheduler = OneCycleLR(
+                optimizer,
+                max_lr=learning_rate,
+                epochs=num_epochs,
+                steps_per_epoch=max(1, steps_per_epoch),
+                pct_start=0.1,
+                div_factor=25.0,
+                final_div_factor=1000.0,
+                anneal_strategy='cos'
+            )
+            scheduler_step_per_batch = True
+    elif scheduler_name == "cosine":
+        scheduler = CosineAnnealingLR(optimizer, T_max=max(1, num_epochs))
+    else:
+        scheduler_name = "plateau"
+        scheduler = ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=5)
     
     # Checkpoint manager
     checkpoint_manager = CheckpointManager(checkpoint_dir)
@@ -1310,7 +1188,10 @@ def train_model(
         
         # Train
         train_loss, train_acc = train_epoch(
-            model, train_loader, optimizer, criterion, device, epoch+1
+            model, train_loader, optimizer, criterion, device, epoch+1,
+            scheduler=scheduler,
+            scheduler_step_per_batch=scheduler_step_per_batch,
+            confidence_penalty=confidence_penalty
         )
         print_debug(f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f}", "TRAIN")
         
@@ -1322,10 +1203,14 @@ def train_model(
         
         # Update learning rate
         old_lr = optimizer.param_groups[0]['lr']
-        scheduler.step(val_acc)
+        if scheduler and not scheduler_step_per_batch:
+            if scheduler_name == "plateau":
+                scheduler.step(val_acc)
+            else:
+                scheduler.step()
         current_lr = optimizer.param_groups[0]['lr']
         if current_lr != old_lr:
-            print_debug(f"Learning rate reduced: {old_lr:.6f} -> {current_lr:.6f}", "INFO")
+            print_debug(f"Learning rate updated: {old_lr:.6f} -> {current_lr:.6f}", "INFO")
         else:
             print_debug(f"Learning rate: {current_lr:.6f}", "INFO")
         
@@ -1371,18 +1256,18 @@ if __name__ == "__main__":
     parser.add_argument(
         "--edf_folder_path",
         type=str,
-        default=r"C:\PS\Sleep-Staging\cfs_test",
+        default=r"D:\cfs\polysomnography\edfs",
         help="Path to CFS EDF files folder"
     )
     parser.add_argument(
         "--annotation_folder_path",
         type=str,
-        default=r"C:\PS\Sleep-Staging\cfs_test_xml",
+        default=r"D:\cfs\polysomnography\annotations-events-nsrr",
         help="Path to CFS XML annotation files folder"
     )
-    parser.add_argument("--num_epochs", type=int, default=50, help="Number of training epochs")
+    parser.add_argument("--num_epochs", type=int, default=20, help="Number of training epochs")
     parser.add_argument("--batch_size", type=int, default=8, help="Batch size")
-    parser.add_argument("--learning_rate", type=float, default=1e-4, help="Learning rate")
+    parser.add_argument("--learning_rate", type=float, default=3e-2, help="Learning rate")
     parser.add_argument("--segment_size", type=int, default=10, help="Number of consecutive epochs per sample")
     parser.add_argument("--hidden_dim", type=int, default=256, help="Hidden dimension")
     parser.add_argument("--num_heads", type=int, default=8, help="Number of attention heads")
@@ -1391,6 +1276,21 @@ if __name__ == "__main__":
     parser.add_argument("--dropout", type=float, default=0.1, help="Dropout rate")
     parser.add_argument("--checkpoint_dir", type=str, default="checkpoints", help="Checkpoint directory")
     parser.add_argument("--resume_from", type=str, default=None, help="Resume from checkpoint")
+    parser.add_argument(
+        "--balance_classes",
+        action="store_true",
+        help="Enable aggressive downsampling to equalize classes (disabled by default)"
+    )
+    parser.add_argument("--label_smoothing", type=float, default=0.05, help="Label smoothing for cross-entropy")
+    parser.add_argument("--confidence_penalty", type=float, default=0.02, help="Entropy-based confidence penalty")
+    parser.add_argument("--scheduler_type", type=str, default="one_cycle", choices=["one_cycle", "cosine", "plateau"], help="Learning rate scheduler strategy")
+    parser.add_argument("--spec_augment_prob", type=float, default=0.5, help="Probability of applying SpecAugment to a sample")
+    parser.add_argument("--time_mask_param", type=int, default=12, help="Max time mask width for SpecAugment")
+    parser.add_argument("--freq_mask_param", type=int, default=24, help="Max frequency mask width for SpecAugment")
+    parser.add_argument("--max_time_masks", type=int, default=2, help="Number of time masks for SpecAugment")
+    parser.add_argument("--max_freq_masks", type=int, default=2, help="Number of frequency masks for SpecAugment")
+    parser.add_argument("--disable_channel_norm", action="store_true", help="Disable per-channel z-score normalization")
+    parser.add_argument("--disable_feature_norm", action="store_true", help="Disable feature-level normalization")
     
     args = parser.parse_args()
     
@@ -1408,6 +1308,16 @@ if __name__ == "__main__":
         num_encoder_layers_global=args.num_encoder_layers_global,
         dropout=args.dropout,
         checkpoint_dir=args.checkpoint_dir,
-        resume_from=args.resume_from
+        resume_from=args.resume_from,
+        balance_classes=args.balance_classes,
+        label_smoothing=args.label_smoothing,
+        confidence_penalty=args.confidence_penalty,
+        scheduler_type=args.scheduler_type,
+        spec_augment_prob=args.spec_augment_prob,
+        time_mask_param=args.time_mask_param,
+        freq_mask_param=args.freq_mask_param,
+        max_time_masks=args.max_time_masks,
+        max_freq_masks=args.max_freq_masks,
+        apply_channel_normalization=not args.disable_channel_norm,
+        feature_normalization=not args.disable_feature_norm
     )
-
