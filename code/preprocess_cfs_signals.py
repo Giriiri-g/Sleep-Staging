@@ -256,9 +256,22 @@ def main():
         help="Output directory for preprocessed .pt tensors.",
     )
     parser.add_argument(
+        "--original_csv",
+        type=str,
+        default=None,
+        help="Optional path to an original CSV with EDF paths. If not provided, "
+        "the script will try <csv_path>.bak. Use this if the current CSV 'path' "
+        "column was already rewritten to .pt files.",
+    )
+    parser.add_argument(
+        "--overwrite_existing",
+        action="store_true",
+        help="If set, regenerate tensors even if an output .pt already exists.",
+    )
+    parser.add_argument(
         "--input_channels",
         type=int,
-        default=8,
+        default=7,
         help="Number of channels to keep (must match training config).",
     )
     parser.add_argument(
@@ -303,12 +316,37 @@ def main():
 
     preprocessed_dir.mkdir(parents=True, exist_ok=True)
 
+    # Current CSV (will be rewritten)
     df = pd.read_csv(csv_path)
     if "path" not in df.columns:
         print_error("CSV must contain a 'path' column.")
         return
 
-    # Backup original CSV
+    # Source of EDF paths: original_csv if provided, else backup, else current df
+    if args.original_csv:
+        original_csv_path = Path(args.original_csv)
+        if not original_csv_path.exists():
+            print_error(f"Provided original_csv not found: {original_csv_path}")
+            return
+        df_original = pd.read_csv(original_csv_path)
+        print_info(f"Using EDF paths from original_csv: {original_csv_path}")
+    else:
+        backup_path = csv_path.with_suffix(csv_path.suffix + ".bak")
+        if backup_path.exists():
+            df_original = pd.read_csv(backup_path)
+            print_info(f"Using EDF paths from backup: {backup_path}")
+        else:
+            df_original = df
+            print_warning(
+                "No original_csv or backup found; using current CSV paths. "
+                "If these point to .pt files, provide --original_csv."
+            )
+
+    if "path" not in df_original.columns:
+        print_error("Original CSV must contain a 'path' column.")
+        return
+
+    # Backup original CSV (once)
     backup_path = csv_path.with_suffix(csv_path.suffix + ".bak")
     if not backup_path.exists():
         df.to_csv(backup_path, index=False)
@@ -329,7 +367,7 @@ def main():
     )
 
     for idx, row in df.iterrows():
-        edf_path = Path(row["path"])
+        edf_path = Path(df_original.loc[idx, "path"])
         if not edf_path.exists():
             print_warning(f"[{idx+1}/{num_rows}] EDF not found, skipping: {edf_path}")
             new_paths.append(row["path"])
@@ -360,16 +398,22 @@ def main():
             new_paths.append(row["path"])
             continue
 
-        # Save tensor
+        # Save tensor (optionally overwrite)
         nsrr_id = edf_path.stem.replace("cfs-visit5-", "")
         out_name = f"{nsrr_id}_preprocessed.pt"
         out_path = preprocessed_dir / out_name
         try:
-            torch.save(tensor, out_path)
+            if out_path.exists() and not args.overwrite_existing:
+                print_info(
+                    f"[{idx+1}/{num_rows}] Exists, reusing {out_path} "
+                    "(use --overwrite_existing to rebuild)"
+                )
+            else:
+                torch.save(tensor, out_path)
+                print_info(
+                    f"[{idx+1}/{num_rows}] Saved preprocessed tensor to {out_path}"
+                )
             new_paths.append(str(out_path))
-            print_info(
-                f"[{idx+1}/{num_rows}] Saved preprocessed tensor to {out_path}"
-            )
         except Exception as e:
             print_warning(
                 f"[{idx+1}/{num_rows}] Failed to save tensor for {edf_path.name}: {e}"

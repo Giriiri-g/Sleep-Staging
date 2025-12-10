@@ -17,14 +17,14 @@ if __name__ == "__main__":
     class Args:
         # Data configuration
         data_path = str(project_root / "csv-docs" / "cfs_visit5_selected.csv")
-        input_channels = 8
+        input_channels = 7  # C3-M2 + 6 physio channels
         input_length = 3000
         batch_size = 1  # Very small batch for 4GB GPU
         num_workers = 0
         val_split = 100  # Absolute count
         test_split = 0.2  # Ratio
-        channel_names = 'C3,M2,LOC,ECG1,EMG1,THOR EFFORT,ABDO EFFORT,SaO2'
-        target_sample_rate = 100.0
+        channel_names = 'C3-M2,LOC,ECG1,EMG1,THOR EFFORT,ABDO EFFORT,SaO2'
+        target_sample_rate = 128.0
         split_seed = 42
         normalization = "zscore"
         

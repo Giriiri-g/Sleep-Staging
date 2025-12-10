@@ -446,8 +446,13 @@ class Cell(nn.Module):
                     op_outputs = []
                     for w, op in zip(weights, self.ops[idx].values()):
                         op_out = op(states[j])
+                        # Handle 2D outputs (e.g., from FullyConnectedOperation)
+                        if op_out.dim() == 2:
+                            # Reshape to 3D: (B, C) -> (B, C, 1) then expand to match temporal dim
+                            op_out = op_out.unsqueeze(2)  # (B, C, 1)
+                            op_out = op_out.expand(-1, -1, states[j].shape[2])  # (B, C, T)
                         # Ensure temporal dimension matches input
-                        if op_out.shape[2] != states[j].shape[2]:
+                        elif op_out.dim() == 3 and op_out.shape[2] != states[j].shape[2]:
                             # Use adaptive pooling or interpolation to match size
                             op_out = F.interpolate(
                                 op_out, 
@@ -462,8 +467,13 @@ class Cell(nn.Module):
                     op_outputs = []
                     for op in self.ops[idx].values():
                         op_out = op(states[j])
+                        # Handle 2D outputs (e.g., from FullyConnectedOperation)
+                        if op_out.dim() == 2:
+                            # Reshape to 3D: (B, C) -> (B, C, 1) then expand to match temporal dim
+                            op_out = op_out.unsqueeze(2)  # (B, C, 1)
+                            op_out = op_out.expand(-1, -1, states[j].shape[2])  # (B, C, T)
                         # Ensure temporal dimension matches
-                        if op_out.shape[2] != states[j].shape[2]:
+                        elif op_out.dim() == 3 and op_out.shape[2] != states[j].shape[2]:
                             op_out = F.interpolate(
                                 op_out,
                                 size=states[j].shape[2],

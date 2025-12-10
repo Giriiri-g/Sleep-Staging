@@ -281,7 +281,7 @@ def run_efficient_darts_search(args):
             num_nodes=args.num_nodes,
             search_space=DARTS_OPS
         )
-        
+            
         num_params = count_parameters(model)
         print_key_value("Supernet parameters", f"{num_params:,}")
         

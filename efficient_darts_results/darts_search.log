@@ -80,3 +80,172 @@ torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 376.00 MiB. GPU 0 
 2025-12-04 17:11:05 - INFO - Architecture: 3 cells, 2 nodes, 24 init channels
 2025-12-04 17:11:05 - INFO - Constraints: FLOPs=50000000, MACs=25000000, Params=500000
 2025-12-04 17:11:06 - INFO - Starting training...
+2025-12-05 14:37:25 - INFO - ================================================================================
+2025-12-05 14:37:25 - INFO - Starting Efficient DARTS Search
+2025-12-05 14:37:25 - INFO - Device: cuda
+2025-12-05 14:37:25 - INFO - Data path: D:\Sleep-Staging\csv-docs\cfs_visit5_selected.csv
+2025-12-05 14:37:25 - INFO - Dataset loaded: 730 total samples
+2025-12-05 14:37:25 - INFO - Train: 504, Val: 100, Test: 126
+2025-12-05 14:37:25 - INFO - Supernet created: 1,454,753 parameters
+2025-12-05 14:37:25 - INFO - Architecture: 3 cells, 2 nodes, 24 init channels
+2025-12-05 14:37:25 - INFO - Constraints: FLOPs=50000000, MACs=25000000, Params=500000
+2025-12-05 14:37:29 - INFO - Starting training...
+2025-12-05 14:41:22 - INFO - New best model at epoch 1: Val Acc = 90.40%
+2025-12-05 14:45:18 - INFO - Epoch 2:
+2025-12-05 14:45:18 - INFO -   Train Loss: 0.3331
+2025-12-05 14:45:18 - INFO -   Train Acc: 87.92%
+2025-12-05 14:45:18 - INFO -   Val Loss: 0.3239
+2025-12-05 14:45:18 - INFO -   Val Acc: 90.40%
+2025-12-05 14:45:18 - INFO -   FLOPs: 133,973,664
+2025-12-05 14:45:18 - INFO -   MACs: 65,942,928
+2025-12-05 14:45:18 - INFO -   Params: 171,072
+2025-12-05 14:53:17 - INFO - Epoch 4:
+2025-12-05 14:53:17 - INFO -   Train Loss: 0.3256
+2025-12-05 14:53:17 - INFO -   Train Acc: 88.03%
+2025-12-05 14:53:17 - INFO -   Val Loss: 0.3047
+2025-12-05 14:53:17 - INFO -   Val Acc: 90.40%
+2025-12-05 14:53:17 - INFO -   FLOPs: 128,839,488
+2025-12-05 14:53:17 - INFO -   MACs: 63,375,840
+2025-12-05 14:53:17 - INFO -   Params: 171,072
+2025-12-05 14:57:09 - INFO - ================================================================================
+2025-12-05 14:57:09 - INFO - Starting Efficient DARTS Search
+2025-12-05 14:57:09 - INFO - Device: cuda
+2025-12-05 14:57:09 - INFO - Data path: D:\Sleep-Staging\csv-docs\cfs_visit5_selected.csv
+2025-12-05 14:57:09 - INFO - Dataset loaded: 730 total samples
+2025-12-05 14:57:09 - INFO - Train: 504, Val: 100, Test: 126
+2025-12-05 14:57:09 - INFO - Supernet created: 1,454,585 parameters
+2025-12-05 14:57:09 - INFO - Architecture: 3 cells, 2 nodes, 24 init channels
+2025-12-05 14:57:09 - INFO - Constraints: FLOPs=50000000, MACs=25000000, Params=500000
+2025-12-05 14:57:10 - INFO - Starting training...
+2025-12-05 14:57:10 - ERROR - Error at epoch 0: Given groups=1, weight of size [24, 7, 7], expected input[1, 8, 3000] to have 7 channels, but got 8 channels instead
+Traceback (most recent call last):
+  File "D:\Sleep-Staging\code\efficient_darts_search.py", line 392, in run_efficient_darts_search
+    train_metrics = trainer.train_epoch(epoch)
+  File "D:\Sleep-Staging\code\darts.py", line 245, in train_epoch
+    self.step(x_train, target_train, x_valid, target_valid)
+  File "D:\Sleep-Staging\code\efficient_darts_search.py", line 134, in step
+    logits_train = self.model(x_train)
+  File "C:\Users\geethalekshmy\AppData\Local\Programs\Python\Python310\lib\site-packages\torch\nn\modules\module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "C:\Users\geethalekshmy\AppData\Local\Programs\Python\Python310\lib\site-packages\torch\nn\modules\module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "D:\Sleep-Staging\code\nas_search_space.py", line 593, in forward
+    x = self.stem(x)
+  File "C:\Users\geethalekshmy\AppData\Local\Programs\Python\Python310\lib\site-packages\torch\nn\modules\module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "C:\Users\geethalekshmy\AppData\Local\Programs\Python\Python310\lib\site-packages\torch\nn\modules\module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "C:\Users\geethalekshmy\AppData\Local\Programs\Python\Python310\lib\site-packages\torch\nn\modules\container.py", line 250, in forward
+    input = module(input)
+  File "C:\Users\geethalekshmy\AppData\Local\Programs\Python\Python310\lib\site-packages\torch\nn\modules\module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "C:\Users\geethalekshmy\AppData\Local\Programs\Python\Python310\lib\site-packages\torch\nn\modules\module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "C:\Users\geethalekshmy\AppData\Local\Programs\Python\Python310\lib\site-packages\torch\nn\modules\conv.py", line 375, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+  File "C:\Users\geethalekshmy\AppData\Local\Programs\Python\Python310\lib\site-packages\torch\nn\modules\conv.py", line 370, in _conv_forward
+    return F.conv1d(
+RuntimeError: Given groups=1, weight of size [24, 7, 7], expected input[1, 8, 3000] to have 7 channels, but got 8 channels instead
+2025-12-06 11:22:03 - INFO - ================================================================================
+2025-12-06 11:22:03 - INFO - Starting Efficient DARTS Search
+2025-12-06 11:22:03 - INFO - Device: cuda
+2025-12-06 11:22:03 - INFO - Data path: D:\Sleep-Staging\csv-docs\cfs_visit5_selected.csv
+2025-12-06 11:22:03 - INFO - Dataset loaded: 730 total samples
+2025-12-06 11:22:03 - INFO - Train: 504, Val: 100, Test: 126
+2025-12-06 11:22:03 - INFO - Supernet created: 1,454,585 parameters
+2025-12-06 11:22:03 - INFO - Architecture: 3 cells, 2 nodes, 24 init channels
+2025-12-06 11:22:03 - INFO - Constraints: FLOPs=50000000, MACs=25000000, Params=500000
+2025-12-06 11:22:04 - INFO - Starting training...
+2025-12-06 11:26:03 - INFO - New best model at epoch 1: Val Acc = 90.40%
+2025-12-06 11:29:57 - INFO - Epoch 2:
+2025-12-06 11:29:57 - INFO -   Train Loss: 0.3369
+2025-12-06 11:29:57 - INFO -   Train Acc: 87.72%
+2025-12-06 11:29:57 - INFO -   Val Loss: 0.3048
+2025-12-06 11:29:57 - INFO -   Val Acc: 90.10%
+2025-12-06 11:29:57 - INFO -   FLOPs: 135,413,016
+2025-12-06 11:29:57 - INFO -   MACs: 66,788,352
+2025-12-06 11:29:57 - INFO -   Params: 170,904
+2025-12-06 11:37:54 - INFO - Epoch 4:
+2025-12-06 11:37:54 - INFO -   Train Loss: 0.3257
+2025-12-06 11:37:54 - INFO -   Train Acc: 88.00%
+2025-12-06 11:37:54 - INFO -   Val Loss: 0.3204
+2025-12-06 11:37:54 - INFO -   Val Acc: 90.40%
+2025-12-06 11:37:54 - INFO -   FLOPs: 128,587,992
+2025-12-06 11:37:54 - INFO -   MACs: 63,375,840
+2025-12-06 11:37:54 - INFO -   Params: 170,904
+2025-12-06 11:41:52 - INFO - Logs dumped to efficient_darts_results\logs_epoch_5.json
+2025-12-06 11:45:48 - INFO - Epoch 6:
+2025-12-06 11:45:48 - INFO -   Train Loss: 0.3190
+2025-12-06 11:45:48 - INFO -   Train Acc: 88.19%
+2025-12-06 11:45:48 - INFO -   Val Loss: 0.3050
+2025-12-06 11:45:48 - INFO -   Val Acc: 90.45%
+2025-12-06 11:45:48 - INFO -   FLOPs: 128,587,992
+2025-12-06 11:45:48 - INFO -   MACs: 63,375,840
+2025-12-06 11:45:48 - INFO -   Params: 170,904
+2025-12-06 11:45:48 - INFO - New best model at epoch 6: Val Acc = 90.45%
+2025-12-06 11:53:47 - INFO - Epoch 8:
+2025-12-06 11:53:47 - INFO -   Train Loss: 0.3148
+2025-12-06 11:53:47 - INFO -   Train Acc: 88.02%
+2025-12-06 11:53:47 - INFO -   Val Loss: 0.2995
+2025-12-06 11:53:47 - INFO -   Val Acc: 90.35%
+2025-12-06 11:53:47 - INFO -   FLOPs: 162,427,992
+2025-12-06 11:53:47 - INFO -   MACs: 80,295,840
+2025-12-06 11:53:47 - INFO -   Params: 170,904
+2025-12-06 12:01:40 - INFO - Epoch 10:
+2025-12-06 12:01:40 - INFO -   Train Loss: 0.3124
+2025-12-06 12:01:40 - INFO -   Train Acc: 88.26%
+2025-12-06 12:01:40 - INFO -   Val Loss: 0.3074
+2025-12-06 12:01:40 - INFO -   Val Acc: 90.55%
+2025-12-06 12:01:40 - INFO -   FLOPs: 137,109,912
+2025-12-06 12:01:40 - INFO -   MACs: 67,636,800
+2025-12-06 12:01:40 - INFO -   Params: 170,904
+2025-12-06 12:01:41 - INFO - New best model at epoch 10: Val Acc = 90.55%
+2025-12-06 12:01:41 - INFO - Logs dumped to efficient_darts_results\logs_epoch_10.json
+2025-12-06 12:09:43 - INFO - Epoch 12:
+2025-12-06 12:09:43 - INFO -   Train Loss: 0.3073
+2025-12-06 12:09:43 - INFO -   Train Acc: 88.45%
+2025-12-06 12:09:43 - INFO -   Val Loss: 0.3046
+2025-12-06 12:09:43 - INFO -   Val Acc: 90.55%
+2025-12-06 12:09:43 - INFO -   FLOPs: 137,109,912
+2025-12-06 12:09:43 - INFO -   MACs: 67,636,800
+2025-12-06 12:09:43 - INFO -   Params: 170,904
+2025-12-06 12:18:03 - INFO - Epoch 14:
+2025-12-06 12:18:03 - INFO -   Train Loss: 0.3019
+2025-12-06 12:18:03 - INFO -   Train Acc: 88.59%
+2025-12-06 12:18:03 - INFO -   Val Loss: 0.2933
+2025-12-06 12:18:03 - INFO -   Val Acc: 90.50%
+2025-12-06 12:18:03 - INFO -   FLOPs: 145,703,832
+2025-12-06 12:18:03 - INFO -   MACs: 71,933,760
+2025-12-06 12:18:03 - INFO -   Params: 170,904
+2025-12-06 12:22:02 - INFO - Logs dumped to efficient_darts_results\logs_epoch_15.json
+2025-12-06 12:26:01 - INFO - Epoch 16:
+2025-12-06 12:26:01 - INFO -   Train Loss: 0.2969
+2025-12-06 12:26:01 - INFO -   Train Acc: 88.72%
+2025-12-06 12:26:01 - INFO -   Val Loss: 0.3007
+2025-12-06 12:26:01 - INFO -   Val Acc: 90.15%
+2025-12-06 12:26:01 - INFO -   FLOPs: 144,020,472
+2025-12-06 12:26:01 - INFO -   MACs: 71,092,080
+2025-12-06 12:26:01 - INFO -   Params: 170,904
+2025-12-06 12:33:50 - INFO - Epoch 18:
+2025-12-06 12:33:50 - INFO -   Train Loss: 0.2932
+2025-12-06 12:33:50 - INFO -   Train Acc: 88.78%
+2025-12-06 12:33:50 - INFO -   Val Loss: 0.3025
+2025-12-06 12:33:50 - INFO -   Val Acc: 90.45%
+2025-12-06 12:33:50 - INFO -   FLOPs: 144,020,472
+2025-12-06 12:33:50 - INFO -   MACs: 71,092,080
+2025-12-06 12:33:50 - INFO -   Params: 170,904
+2025-12-06 12:37:53 - INFO - New best model at epoch 19: Val Acc = 90.60%
+2025-12-06 12:41:49 - INFO - Epoch 20:
+2025-12-06 12:41:49 - INFO -   Train Loss: 0.2888
+2025-12-06 12:41:49 - INFO -   Train Acc: 89.09%
+2025-12-06 12:41:49 - INFO -   Val Loss: 0.3127
+2025-12-06 12:41:49 - INFO -   Val Acc: 89.05%
+2025-12-06 12:41:49 - INFO -   FLOPs: 167,079,192
+2025-12-06 12:41:49 - INFO -   MACs: 82,621,440
+2025-12-06 12:41:49 - INFO -   Params: 170,904
+2025-12-06 12:41:49 - INFO - Logs dumped to efficient_darts_results\logs_epoch_20.json
+2025-12-06 12:41:49 - INFO - ================================================================================
+2025-12-06 12:41:49 - INFO - Training completed
+2025-12-06 12:41:49 - INFO - Best Val Accuracy: 90.60%
+2025-12-06 12:41:49 - INFO - Final Efficiency: FLOPs=167,079,192, MACs=82,621,440, Params=170,904
+2025-12-06 12:41:49 - INFO - Results saved to efficient_darts_results
