@@ -15,7 +15,7 @@ import glob
 import json
 import os
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -40,7 +40,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from cfs_dataset import CFSAilmentDataset, load_cfs_dataframe  # type: ignore
-from nas_search_space import Network, DARTS_OPS  # type: ignore
+from nas_search_space import Network, DARTS_OPS, ALL_OPS  # type: ignore
 from utils import (
     print_header,
     print_section,
@@ -63,10 +63,15 @@ def build_model_from_arch(
     num_cells: int,
     num_nodes: int,
     device: torch.device,
+    search_space: Optional[List[str]] = None,
 ) -> nn.Module:
     """
     Build a Network and set arch_params to the discrete architecture.
+    Uses ALL_OPS by default to match checkpoints saved from evaluate_darts_architecture.py
     """
+    if search_space is None:
+        search_space = ALL_OPS  # Use ALL_OPS to match saved checkpoints
+    
     model = Network(
         input_channels=input_channels,
         input_length=input_length,
@@ -74,7 +79,7 @@ def build_model_from_arch(
         init_channels=init_channels,
         num_cells=num_cells,
         num_nodes=num_nodes,
-        search_space=DARTS_OPS,
+        search_space=search_space,
     ).to(device)
 
     alpha = torch.zeros_like(model.arch_params)
@@ -86,8 +91,8 @@ def build_model_from_arch(
         for node_idx in range(num_nodes):
             if node_idx < len(cell_arch):
                 for prev_node, op_name in cell_arch[node_idx]:
-                    if op_name in DARTS_OPS:
-                        op_idx = DARTS_OPS.index(op_name)
+                    if op_name in search_space:
+                        op_idx = search_space.index(op_name)
                         alpha[cell_idx, edge_idx, op_idx] = 100.0
                     edge_idx += 1
             else:
@@ -385,6 +390,7 @@ def main():
     num_classes = len(class_names)
 
     # Build model and load weights
+    # Use ALL_OPS to match checkpoints saved from evaluate_darts_architecture.py
     model = build_model_from_arch(
         arch=arch,
         input_channels=args.input_channels,
@@ -394,9 +400,42 @@ def main():
         num_cells=args.num_cells,
         num_nodes=args.num_nodes,
         device=device,
+        search_space=ALL_OPS,  # Match the checkpoint's search space
     )
-    state = torch.load(args.checkpoint_path, map_location=device)
-    model.load_state_dict(state if isinstance(state, dict) else state["model_state_dict"])
+    
+    # Load checkpoint - handle both dict and nested state_dict formats
+    checkpoint = torch.load(args.checkpoint_path, map_location=device)
+    state_dict = checkpoint if isinstance(checkpoint, dict) and "model_state_dict" not in checkpoint else checkpoint.get("model_state_dict", checkpoint)
+    
+    # Filter out _arch_params from checkpoint since we set it from architecture
+    # This avoids shape mismatch errors when search spaces differ
+    filtered_state_dict = {k: v for k, v in state_dict.items() if k != "_arch_params"}
+    
+    # Load with strict=False to allow _arch_params mismatch
+    missing_keys, unexpected_keys = model.load_state_dict(filtered_state_dict, strict=False)
+    if missing_keys:
+        print_warning(f"Missing keys in checkpoint: {missing_keys[:5]}...")
+    if unexpected_keys:
+        print_warning(f"Unexpected keys in checkpoint: {unexpected_keys[:5]}...")
+    
+    # Set architecture parameters from the architecture dict (overrides checkpoint)
+    alpha = torch.zeros_like(model.arch_params)
+    for cell_idx in range(args.num_cells):
+        if cell_idx not in arch:
+            continue
+        cell_arch = arch[cell_idx]
+        edge_idx = 0
+        for node_idx in range(args.num_nodes):
+            if node_idx < len(cell_arch):
+                for prev_node, op_name in cell_arch[node_idx]:
+                    if op_name in ALL_OPS:
+                        op_idx = ALL_OPS.index(op_name)
+                        alpha[cell_idx, edge_idx, op_idx] = 100.0
+                    edge_idx += 1
+            else:
+                edge_idx += node_idx + 2
+    model._arch_params.data = alpha
+    
     model.eval()
     print_success("Loaded model checkpoint.")
 
