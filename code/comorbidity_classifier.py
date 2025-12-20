@@ -38,9 +38,9 @@ class ComorbidityClassifier(nn.Module):
         rnn_type: str = 'LSTM',  # 'LSTM' or 'GRU'
         rnn_dropout: float = 0.2,
         num_features: int = 12,  # Number of other PSG features
-        combined_hidden_dim: int = 256,
+        combined_hidden_dim: int = 128,  # Reduced to prevent overfitting
         num_outputs: int = 3,  # insomnia, restless leg, apnea
-        dropout: float = 0.3,
+        dropout: float = 0.5,  # Increased default dropout
         use_bidirectional: bool = True
     ):
         super(ComorbidityClassifier, self).__init__()
@@ -86,15 +86,13 @@ class ComorbidityClassifier(nn.Module):
         # Combined feature dimension
         combined_input_dim = rnn_output_dim + (rnn_output_dim // 2)
         
-        # Prediction head
+        # Prediction head (simplified to reduce overfitting)
         self.classifier = nn.Sequential(
             nn.Linear(combined_input_dim, combined_hidden_dim),
+            nn.LayerNorm(combined_hidden_dim),  # Use LayerNorm instead of BatchNorm (works with batch_size=1)
             nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(combined_hidden_dim, combined_hidden_dim // 2),
-            nn.ReLU(),
-            nn.Dropout(dropout * 0.5),
-            nn.Linear(combined_hidden_dim // 2, num_outputs)
+            nn.Linear(combined_hidden_dim, num_outputs)
         )
         
         # Initialize weights

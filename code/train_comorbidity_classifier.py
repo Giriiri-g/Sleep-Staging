@@ -589,8 +589,8 @@ def main():
                         help='Number of epochs')
     parser.add_argument('--lr', type=float, default=1e-3,
                         help='Learning rate')
-    parser.add_argument('--weight_decay', type=float, default=1e-5,
-                        help='Weight decay')
+    parser.add_argument('--weight_decay', type=float, default=1e-3,
+                        help='Weight decay (increased default for regularization)')
     parser.add_argument('--test_size', type=float, default=0.2,
                         help='Test set size')
     parser.add_argument('--val_size', type=float, default=0.1,
@@ -601,12 +601,12 @@ def main():
                         help='Maximum sequence length (None = use all)')
     parser.add_argument('--rnn_type', type=str, default='LSTM', choices=['LSTM', 'GRU'],
                         help='RNN type')
-    parser.add_argument('--rnn_hidden_dim', type=int, default=128,
-                        help='RNN hidden dimension')
+    parser.add_argument('--rnn_hidden_dim', type=int, default=64,
+                        help='RNN hidden dimension (reduced to prevent overfitting)')
     parser.add_argument('--rnn_num_layers', type=int, default=2,
                         help='Number of RNN layers')
-    parser.add_argument('--embedding_dim', type=int, default=32,
-                        help='Sleep stage embedding dimension')
+    parser.add_argument('--embedding_dim', type=int, default=16,
+                        help='Sleep stage embedding dimension (reduced to prevent overfitting)')
     parser.add_argument('--dropout', type=float, default=0.3,
                         help='Dropout rate')
     parser.add_argument('--resume', type=str, default=None,
