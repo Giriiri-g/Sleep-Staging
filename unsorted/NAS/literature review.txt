@@ -1,0 +1,314 @@
+1. Title : A Zero-Burden Sleep Foundation Model Built on Cardiorespiratory Signals from
+
+Introduction
+  - Describes the importance of sleep for overall health and the prevalence of sleep disorders. 
+  - Highlights the limitations of polysomnography (PSG) for home-based or long-term sleep monitoring.
+  - Introduces the concept of using cardiorespiratory signals and foundation model approaches for accurate sleep assessment.
+  - Presents the SleepFounder model, a zero-burden sleep monitoring model trained on a large multi-ethnic sleep dataset.
+Methods
+  - Briefly mentions ethical approvals and data de-identification procedures. 
+  - Presents details about the pretraining datasets, including the number of individuals, recording hours, and data sources (NSRR, HSP, and Chinese clinical cohorts).
+  - Lists the data preprocessing steps for each physiological modality (heartbeat, respiration, EEG, and SpO2).
+  - Describes the SleepFounder model architecture, highlighting the ResNet-based feature extractor, the RoFormer encoder, and the early fusion strategy for integrating heartbeat and respiration signals.
+  - Discusses the two physiology-inspired pretext tasks used for pretraining: EEG spectrogram reconstruction and oxygen desaturation prediction, including their physiological relevance and loss functions.
+  - Notes the data partitioning scheme for pretraining, validation, and testing, mentioning the specific handling of the HSP dataset for temporal validation.
+  - Mentions the use of the Adam optimizer, learning rate, and early stopping criteria for model training.
+  - Describes the fine-tuning strategy, emphasizing the removal of pretraining heads, the addition of a task-specific layer, and the aggregation of hidden states from all encoder layers.
+  - Briefly notes the fine-tuning hyperparameters, data partitioning for downstream tasks, and the use of external test datasets.
+Results
+  - Highlights the scale and diversity of the study population, including the number of datasets, individuals, and recording hours used for pretraining and evaluation.
+  - Presents the baseline demographic characteristics of all cohorts, summarizing age, sex, and race/ethnicity distributions.
+  - Demonstrates that cardiorespiratory signals effectively capture core sleep physiology, as evidenced by accurate reconstruction of EEG spectrograms and oxygen desaturation patterns.
+  - Notes the quantitative performance on pretext tasks, showing high correlations and low mean absolute errors across internal and external datasets. 
+  - Mentions the superior performance of SleepFounder compared with task-specific models and various input modalities across downstream tasks.
+  - Shows SleepFounder’s superior performance in sleep analysis and demographic profiling, achieving state-of-the-art results on four external datasets (SHHS, WSC, SRRSH, and SSPH) across sleep staging, OSA detection, age prediction, and sex classification.
+  - Highlights SleepFounder’s data efficiency, maintaining strong performance even with limited labeled data, surpassing baseline models with substantially fewer training samples.
+  - Demonstrates SleepFounder’s clinical utility in multi-organ disease detection, achieving clinically meaningful performance across eight physiological systems and 17 disease categories.
+  - Presents AUROC values for a range of conditions, highlighting strong performance in cardiovascular, neurological, and digestive systems.
+  - Shows the generalization of disease detection performance to external cohorts, including the temporally external HSP dataset and four independent cohorts (SHHS, WSC, SSPH, and SRRSH). 
+  - Shows SleepFounder’s prognostic value in predicting future disease outcomes, achieving high AUROC and C-index values for six cardiovascular conditions in the SHHS cohort. 
+  - Highlights the strong discriminative ability for mortality endpoints and presents Kaplan-Meier survival curves showing significant risk stratification based on predicted risk scores.
+  - Presents the results of the real-world BCG study, showing high concordance between BCG-derived and PSG-derived cardiorespiratory signals.
+  - Demonstrates SleepFounder’s robust performance on the external multi-center BCG dataset across four downstream tasks, highlighting its direct applicability for home-based sleep monitoring.
+Discussion
+  - Discusses the advantages of SleepFounder over previous sleep foundation models, emphasizing its reliance on easily obtainable cardiorespiratory signals. 
+  - Highlights SleepFounder’s consistent and superior performance compared with both self-supervised and task-specific baseline models, showcasing its strong data efficiency and accuracy.
+  - Discusses the clinical relevance and physiological interpretability of SleepFounder’s findings in multi-organ disease detection, particularly in cardiovascular, neurological, and digestive systems.
+  - Notes the robust prognostic performance of SleepFounder in predicting future cardiovascular outcomes, comparing its accuracy with established clinical risk scores.
+  - Emphasizes the real-world applicability of SleepFounder, as evidenced by its strong performance on BCG data collected with a custom-developed sleep mat system.
+Limitations
+  - Acknowledges the limitations of the study, noting the reliance on PSG data for pretraining and the use of primarily self-reported disease labels.
+  - Suggests future directions, including broader population validation, integration of clinically confirmed outcomes, and expansion to cohorts with longitudinal follow-up for disease prediction.
+Conclusion
+  - Reinforces the key finding that cardiorespiratory-based foundation models enable accurate, scalable, and zero-burden sleep monitoring. 
+  - Summarizes the model’s robust and generalizable performance across sleep analysis, multi-organ disease detection, and future disease prediction tasks.
+  - Concludes that SleepFounder establishes a new paradigm for precision preventive medicine by integrating passive physiological monitoring with AI-driven sleep and health assessment.
+
+2. Title : Stanford Sleep Bench: Evaluating Polysomnography Pre-training Methods for Sleep Foundation Models
+
+Introduction
+  - Describes the importance of sleep for overall health and the role of polysomnography (PSG) in sleep research and clinical practice.
+  - Presents challenges associated with manual annotation of PSG recordings, such as time consumption, labor intensiveness, and potential for inconsistencies.
+  - Proposes foundation models with self-supervised representation learning (SSRL) as a solution to these challenges.
+  - Mentions the successful application of SSRL methods in other biomedical domains and highlights the limitations of existing PSG datasets and the lack of systematic evaluation of SSRL approaches in sleep research.
+Related Work
+  - Discusses the evolution of machine learning in sleep analysis, transitioning from hand-engineered features to deep learning models for sleep staging and apnea diagnosis.
+  - Presents the success of foundation models and SSRL in various domains, including masked prediction, denoising autoencoders, and contrastive learning, and their extension to time series data. 
+  - Reviews existing polysomnography datasets and highlights their limitations, including small cohort sizes, inconsistent modality availability, limited benchmarking tasks, and the absence of standardized train/validation/test splits.
+Results
+  - Describes the Stanford Sleep Bench dataset, including its size, the process of selecting and preprocessing PSG signals, and the division into training, validation, and test sets.
+  - Discusses the evaluation of various SSRL methods on downstream tasks, such as sleep staging, apnea diagnosis, age estimation, and disease and mortality prediction, highlighting the superior performance of contrastive learning in disease and mortality prediction and the effectiveness of frequency-domain methods in sleep staging and apnea diagnosis.
+  - Presents the results of few-shot learning experiments, demonstrating the efficiency of contrastive learning in achieving high performance with limited data.
+  - Notes the external validation of SSRL methods on the SHHS dataset, confirming the generalizability of the findings.
+Discussion
+  - Highlights the significance of Stanford Sleep Bench as a large-scale, standardized dataset with a comprehensive benchmarking framework for sleep foundation models.
+  - Discusses the strengths and weaknesses of different SSRL methods, emphasizing the superiority of contrastive learning for complex tasks like age estimation and disease prediction.
+  - Notes the importance of standardized evaluation in sleep AI research and the value of Stanford Sleep Bench in addressing this gap.
+  - Mentions the potential clinical implications of models that can predict disease risk based on sleep data and discusses avenues for future research using Stanford Sleep Bench.
+  - Acknowledges limitations of the work, such as the limited exploration of parameter space and the focus on specific pre-training methods.
+Method
+  - Details the five downstream task categories used to evaluate learned representations, including sleep staging, apnea diagnosis, age estimation, and mortality and disease prediction.
+  - Describes the common architecture shared by all models for generating embeddings, including the use of modality-specific encoders and a temporal transformer.
+  - Presents the different pre-training schemes evaluated, including baseline embeddings, masked autoencoder (MAE), denoising autoencoder (DAE), and contrastive learning (CL).
+  - Explains the fine-tuning process for each downstream task, including the use of specific loss functions and attention-pooling mechanisms.
+
+3. Title : A Multimodal Sleep Foundation Model Developed with 500K Hours of Sleep Recordings for Disease Predictions
+
+Abstract
+  - Describes a multimodal sleep foundation model, SleepFM, trained on 585,000 hours of sleep recordings from ~65,000 participants.
+  - Highlights the model's ability to predict 130 future diseases with high accuracy, including death, heart failure, chronic kidney disease, and dementia.
+  - Notes SleepFM's generalizability, validated through strong performance on the unseen Sleep Heart Health Study (SHHS).
+  - Mentions the model's competitive performance on traditional sleep analysis tasks such as sleep staging and apnea diagnosis.
+Introduction
+  - Presents sleep as a complex biological process with significant implications for health, often captured using polysomnography (PSG).
+  - Discusses the challenges of analyzing PSG data due to variability across recording environments and limitations of existing deep learning models.
+  - Introduces the concept of foundation models and their potential in biomedicine, particularly for analyzing sleep data. 
+  - Highlights the limitations of previous sleep-focused foundation models and the need for flexible architectures that can predict a broader range of diseases.
+Results
+  - Describes the four cohorts used for training and evaluation: Stanford Sleep Clinic (SSC), BioSerenity, Multi-Ethnic Study of Atherosclerosis (MESA), and Outcomes of Sleep Disorders in Older Men (MrOS).
+  - Introduces the Sleep Heart Health Study (SHHS) as an independent validation dataset.
+  - Explains the model's two-phase approach: channel-agnostic multimodal pre-training and task-specific fine-tuning.
+  - Discusses the pre-processing pipeline, including resampling, segmentation, and the use of 5-second windows as tokens.
+  - Details the model architecture, including 1D convolutional layers, channel-agnostic attention pooling, transformer blocks, and a leave-one-out contrastive learning strategy.
+  - Explains the fine-tuning process using frozen embeddings and a 2-layer LSTM network.
+  - Presents the evaluation metrics for different tasks, including AUROC, AUPRC, MAE, correlation coefficient, F1 score, and C-Index.
+SleepFM Demonstrates Strong Performance on Standard Sleep Analysis Tasks
+  - Presents results for four benchmark tasks: age estimation, gender classification, sleep stage classification, and sleep apnea diagnosis.
+  - Highlights SleepFM's competitive performance on sleep stage classification compared to U-Sleep.
+  - Notes the model's strong performance on sleep apnea diagnosis, particularly on the unseen SHHS dataset.
+SleepFM Enables Comprehensive Disease Prediction from Sleep Data
+  - Discusses the systematic identification of health conditions predictable from sleep data, using a PheWAS-inspired approach.
+  - Explains the pairing of SSC data with EHR data, extracting diagnostic information and translating it into phecodes.
+  - Describes the filtering of phecodes based on prevalence and the use of a 7-day offset to avoid trivial cases.
+  - Presents results for disease prediction across different categories, highlighting strong performance in areas like neoplasms, circulatory conditions, and mental disorders.
+  - Focuses on 14 hand-selected conditions of particular interest, including death, stroke, heart failure, and dementia, demonstrating robust predictive accuracy.
+SleepFM Demonstrates Robust Generalization Across Time and Cohorts
+  - Evaluates temporal generalization on a separate cohort of Stanford patients from 2020 onwards, showing robust performance for death, heart failure, and dementia.
+  - Assesses cross-site generalization on the SHHS dataset, highlighting strong transfer learning performance for stroke, congestive heart failure, and cardiovascular disease-related mortality.
+Differential Predictive Power Across Sleep Stages and Modalities
+  - Analyzes the predictive power of individual sleep stages and signal modalities.
+  - Notes that Stage 1/2 and REM sleep generally outperform other stages in predicting various conditions.
+  - Highlights the specialized predictive power of different modalities: BAS for neurological conditions, RESP for pulmonary and skin conditions, and EKG for cardiovascular conditions.
+  - Discusses the complementary predictions across modalities, with RESP being informative across neurological and circulatory conditions.
+SleepFM Surpasses Supervised Baselines in Disease Prediction
+  - Compares SleepFM against a demographics baseline and an end-to-end PSG model.
+  - Shows that SleepFM consistently outperforms both baselines across most phecodes and disease categories.
+  - Emphasizes the value of foundation model pre-training for capturing subtle signals in PSG data, particularly for predicting mortality.
+Discussion
+  - Summarizes the key contributions of the study, including the development of a channel-agnostic foundation model, demonstrating the broad predictive power of sleep, and showcasing robust transfer learning capabilities.
+  - Discusses the potential clinical implications of SleepFM for early risk stratification and intervention, particularly for neurological, mental, and cardiovascular disorders.
+  - Compares SleepFM's performance with existing models and discusses the clinical relevance of the predicted conditions.
+  - Acknowledges the limitations of the study, including selection bias, temporal degradation, and interpretability challenges.
+Methods
+  - Provides a detailed description of the datasets, including preprocessing steps, channel selection, and data splitting.
+  - Explains the SleepFM model architecture, encompassing the encoder, transformer-based operations, and output layers.
+  - Details the model training process, including pre-training with contrastive learning and fine-tuning for specific downstream tasks.
+  - Describes the baseline models used for comparison.
+  - Provides implementation details regarding software, hardware, and hyperparameters.
+Ethics & Inclusion Statement
+  - Notes the ethical approval from the Stanford University Institutional Review Board and adherence to ethical guidelines.
+  - Mentions informed consent, participant safety, confidentiality, and regulatory compliance.
+
+
+4. Title : Cardiovascular risk and mortality prediction in patients suspected of sleep apnea: a model based on an artificial intelligence system
+Introduction
+  - Describes cardiovascular disease (CVD) as a leading cause of death worldwide.
+  - Presents obstructive sleep apnea (OSA) as a highly prevalent disease associated with CVD.
+  - Discusses the need for a simple and effective CVD risk estimator for OSA patients that incorporates both clinical and sleep features. 
+  - Highlights the potential of machine learning methods for improving CVD risk prediction compared to traditional statistical models.
+Methods
+  - Describes the study population, which consisted of 5234 CVD-free patients from the Pays de la Loire Sleep Cohort.
+  - Defines the endpoint as the first incidence of MMCV (cardiovascular morbidity and all-causes mortality) including cerebrovascular disease, coronaropathy, and heart failure.
+  - Explains the extraction of 30 features, including nine clinical features (age, sex, BMI, alcohol consumption, smoking status, medical history of diabetes, hypertension and heart disease, and SBP) and 21 features derived from sleep recordings. 
+  - Presents the AdaBoost machine learning algorithm used for risk estimation and feature selection.
+Results
+  - Notes the hyperparameters of the AdaBoost model (1000 stumps, learning rate of 0.01).
+  - Presents the performance of the model, which achieved a mean AUC of 0.78.
+  - Highlights the importance of features, with age, mean heart rate, and gender being the most important.
+  - Mentions the decision rules extracted from the model, providing thresholds for different features to classify patients as at risk or not at risk.
+Discussion
+  - Discusses the advantages of the proposed model, including its simplicity, interpretability, and the use of easily accessible features.
+  - Highlights the importance of risk stratification in OSA patients for personalized management of sleep and cardiac disorders.
+  - Compares the performance of the model to other studies, demonstrating comparable results with fewer and more accessible features.
+  - Discusses the relevance of including sleep features in the model, noting that they slightly improve the overall score and provide additional information, particularly for women and patients under 60 years of age. 
+  - Mentions the limitations of the study, including its observational design and potential unmeasured confounding factors.
+Conclusion
+  - Presents the AdaBoost model as an effective tool for predicting 6-year MMCV risk in patients suspected of OSA, using a combination of clinical and sleep features derived from pulse oximetry.
+  - Emphasizes the importance of considering sleep parameters in CVD risk estimation, especially for specific subgroups like women and younger patients.
+  - Suggests the potential of the model as a simple tool for clinical use to aid in patient management.
+  - Encourages further research to identify additional sleep-related risk factors and to improve the accuracy of the model.
+
+
+5. Title : Detecting Chronic Diseases from Sleep-Wake Behaviour and Clinical Features
+
+Introduction
+  - Describes the growing prevalence of chronic diseases and the need for early detection methods.
+  - Mentions the correlation between sleep-wake behavior and chronic diseases like diabetes, CKD, hypertension, arthritis, and stroke.
+  - Highlights existing diagnostic methods and their limitations.
+  - Presents the paper's contribution: using LSTMs to mine actigraph data enriched with clinical history for chronic disease detection.
+Method and Materials
+  - Presents an approach for diagnosing and detecting chronic diseases based on sleep-wake behavior and clinical history data.
+  - Describes the LSTM model design and configuration, including embedding, clinical data integration, dropout strategy, and softmax activation.
+  - Discusses the dataset from the Hispanic Community Health Study, including actigraph measurements and clinical history for various disorders.
+  - Explains the data processing steps, including feature extraction, normalization, and disease-specific clinical data parameters.
+  - Presents the experiment design and implementation, including sequence length investigation, analysis of misclassified participants, and comparison with existing CNN-based methods.
+Results and Discussions
+  - Presents the results for disease detection, highlighting good outcomes for diabetes, apnea, and CKD, while noting less promising results for hypertension.
+  - Discusses the results for each disease, including accuracy, AUC, and significant clinical features identified through statistical analysis.
+  - Presents the results for early disease detection, demonstrating the potential for early detection of diabetes and sleep apnea.
+  - Discusses the limitations of the study, including the use of pre-defined embedding functions and the need for further investigation of loss functions.
+Conclusion and Future Work
+  - Concludes that the LSTM-based approach shows promise for chronic disease detection using sleep-wake behavior analysis.
+  - Highlights the need for further research to explore the applicability to other chronic diseases and identify salient features for each disease.
+  - Suggests future work to investigate the role of additional clinical data and data sources, such as polysomnography, in improving early detection accuracy.
+
+6. Title : Cardiovascular Risk Assessment via Sleep Patterns and ECG-Based Biological Age Estimation
+
+1. Introduction
+  - Briefly introduces the electrocardiogram (ECG) as a tool for assessing cardiovascular health.
+  - Mentions the concept of biological age as a more nuanced measure of health compared to chronological age.
+  - Describes the study's dual-level approach using sleep stages and heart activity to estimate biological age and its relation to CVD risk. 
+  - Highlights the study's key contributions, including a novel framework for analyzing ECG signals, integrating sleep stages with ECG patterns, and validating the methodology on a large patient dataset.
+2. Materials and Methods
+  - Presents the Sleep Heart Health Study (SHHS) dataset, detailing the inclusion criteria, data types (ECG, sleep stages, demographics, outcomes), and the definition of a cardiovascular outcome.
+  - Explains the cohort selection process, including the high-risk and low-risk groups and data splitting strategies for training, validation, and testing.
+  - Mentions ethical considerations and the use of language models (GPT-4) for manuscript preparation.
+  - Describes the workflow for estimating biological age, including transforming raw ECG signals, extracting heart cluster vectors, and integrating these vectors with sleep stage data.
+  - Explains the process of constructing heart cluster vectors, from ECG segmentation and preprocessing to self-supervised modeling, K-means clustering, and vector construction. 
+  - Outlines three experimental setups for age estimation: a heart cluster model, a sleep-stage model, and a combined "Cluster× Sleep" model.
+  - Details the age regression track, covering the mapping of time-series data, convolutional processing, and regression analysis.
+3. Results
+  - Discusses the correlation analysis between the predicted biological ages from different models, highlighting the moderate correlation between the combined model, the heart cluster model, and chronological age.
+  - Presents box plots comparing predicted ages with chronological ages for high-risk and low-risk groups, demonstrating the variability and complementary insights offered by the models.
+  - Notes the mean difference between predicted and chronological ages and Hazard Ratios (HRs) for all-cause mortality and CVD risk across the three experimental setups, emphasizing the superior performance of the combined "Cluster× Sleep" model.
+  - Discusses the analysis of specific cardiovascular outcomes (heart failure, stroke, and myocardial infarction), revealing heart failure as the highest risk factor.
+  - Presents Kaplan-Meier survival curves for each specific outcome, highlighting lower survival probability for heart failure.
+  - Explains the comparison with Framingham Risk variables, demonstrating that the inclusion of the estimated biological age improves the prediction performance of both logistic regression and random forest models.
+4. Discussion
+  - Discusses the significance of deriving cardiac states and their utility in detecting subtle cardiac anomalies.
+  - Highlights the advantage of integrating ECG and sleep-stage data, emphasizing the improved risk stratification and a more holistic health assessment.
+  - Notes the distinction between predicted and chronological age, underscoring the value of personalized health metrics.
+  - Mentions the potential of integrating other modalities for a comprehensive biological age assessment.
+  - Addresses the mean error of the regression models, emphasizing the importance of the divergence between predicted and chronological ages for assessing cardiovascular risk.
+  - Discusses limitations and future directions, including the need for explainable causes, model refinement, and external validation.
+5. Conclusions
+  - Concludes that the integrated analysis of sleep-stage and ECG-derived heart rhythms provides a robust biomarker for cardiovascular risk stratification.
+  - Reinforces that the estimated biological age offers a nuanced assessment of cardiovascular risk beyond traditional age-based evaluations.
+  - Emphasizes the potential of this methodology for earlier interventions and personalized healthcare strategies.
+
+
+7. Title : Multimodal AI-approach for the automatic screening of cardiovascular diseases based on nocturnal physiological signals
+
+Abstract
+  - Presents a multimodal AI algorithm called SleepCVD-Net for the automatic screening of cardiovascular diseases (CVDs) using nocturnal physiological signals.
+  - Briefly notes that the SleepCVD-Net model uses three deep neural networks to analyze single-lead electrocardiography (ECG), airflow, and oxygen saturation (SpO2) data collected from 194 subjects.
+  - Highlights the results showing that the model achieved a mean accuracy of 97.55% and an F1-score exceeding 96% for control, stroke, angina, and congestive heart failure groups.
+  - Emphasizes the potential of SleepCVD-Net for CVD screening and cardiac activity monitoring during sleep in various healthcare settings.
+Introduction
+  - Describes the prevalence and impact of CVDs, highlighting their role as a leading cause of mortality worldwide.
+  - Briefly mentions conditions associated with CVDs, including coronary artery disease, congestive heart failure, and chronic diseases like kidney disease and diabetes.
+  - Presents polysomnography (PSG) as a comprehensive tool for diagnosing sleep disorders, emphasizing its potential for detecting chronic conditions when combined with AI.
+  - Discusses the use of ECG and medical imaging in CVD detection, noting the lack of research using nocturnal data for this purpose.
+Results
+  - Briefly summarizes the performance of the SleepCVD-Net model, reporting its high accuracy and F1-scores across various CVD outcomes, including control, stroke, angina, and congestive heart failure.
+  - Highlights the model's stability and robustness based on consistent performance between validation and test sets.
+  - Briefly notes the use of confusion matrices to visualize agreement between model predictions and cardiologist diagnoses, indicating stable predictions across different data sets.
+  - Mentions the use of receiver operating characteristic curves to assess the false-positive rate for each target class, demonstrating the model's high performance.
+Discussion
+  - Describes the SleepCVD-Net model as a multimodal AI algorithm designed for automatic CVD screening using nocturnal physiological signals.
+  - Briefly mentions the model's three-mode architecture, each analyzing different physiological signals to capture cardiorespiratory activity.
+  - Discusses the model's high performance, highlighting its potential as a valuable extension tool for CVD screening in PSG studies.
+  - Compares the performance of SleepCVD-Net with previous studies on CVD detection, suggesting comparable or better results despite differences in input signals and study designs.
+  - Emphasizes the clinical significance of the model in effectively screening patients for CVDs during sleep, potentially reducing costs and improving efficiency compared to traditional methods.
+  - Briefly notes the limitations of the study, including the focus on a limited range of CVDs, the exclusion of clinical phenotypes, and the model's computational demands.
+Methods
+  - Describes the study design, including the PSG study, nocturnal physiological signal datasets, and the multimodal AI algorithm.
+  - Briefly mentions the use of the Sleep Heart Health Study (SHHS) database, a multicenter cohort study, to obtain PSG data for model development and validation.
+  - Discusses the study population, including the inclusion criteria (control and patients diagnosed with stroke, angina, or congestive heart failure) and the demographic characteristics of the participants.
+  - Briefly describes the process of constructing the nocturnal physiological dataset, including data extraction from PSG recordings, signal preprocessing, and dataset division into training, validation, and test sets.
+SleepCVD-Net
+  - Presents an overview of the proposed SleepCVD-Net model, a multimodal AI algorithm designed to automatically screen for CVDs using nocturnal physiological recordings.
+  - Describes the model's three sub-modes, each processing different physiological signals: Mode_ECG for ECG signals, Mode_Airflow for airflow signals, and Mode_SpO2 for SpO2 signals.
+  - Highlights the rationale for using three distinct sub-modes to capture the unique information provided by each signal and ensure the model's applicability in various PSG setups.
+Implementation
+  - Briefly notes the high-performance developing environment used for implementing the SleepCVD-Net model, including software (Keras framework with TensorFlow backend) and hardware (Intel CPU and NVIDIA GPU).
+Evaluation
+  - Describes the metrics used to assess the performance of the SleepCVD-Net model, including accuracy, F1-score, precision, and recall.
+  - Briefly mentions the use of confusion matrices to visualize the model's performance and identify common error types.
+  - Discusses the use of the receiver operating characteristic (ROC) curve to evaluate the model's performance across all classification thresholds and its ability to handle class imbalance.
+
+8. Title : Multimodal Cardiovascular Risk Profiling Using Self-Supervised Learning of Polysomnography
+Abstract
+
+This paper presents a self-supervised deep learning framework to extract cardiovascular disease (CVD) risk markers directly from raw polysomnography (PSG) signals. Without relying on sleep-stage annotations or handcrafted features, the model learns latent representations from EEG, ECG, and respiratory signals and converts them into interpretable projection scores associated with multiple cardiovascular outcomes. The approach is trained on the Sleep Heart Health Study (SHHS) cohort and externally validated on the Wisconsin Sleep Cohort (WSC), demonstrating consistent improvements over traditional risk scores such as the Framingham Risk Score. 
+
+250709009v1
+
+Introduction
+
+The introduction motivates the work by highlighting the strong but underutilized relationship between sleep physiology and cardiovascular health. While PSG is the gold standard for sleep assessment, clinical practice typically compresses it into coarse summary indices (e.g., AHI, sleep efficiency), losing rich temporal and multimodal information. The authors argue that supervised models require extensive labeling and often focus on single modalities (mostly ECG), whereas self-supervised learning can exploit large-scale unlabeled PSG data to uncover latent disease-relevant physiological patterns. The paper positions itself as the first systematic attempt to use unsupervised multimodal PSG embeddings for long-term cardiovascular risk profiling.
+
+Data and Preprocessing
+
+The primary dataset is SHHS, comprising over 6,000 participants, with 4,398 retained after quality control. Overnight PSG recordings include EEG, ECG, and respiratory signals sampled at different frequencies (EEG/ECG at 125 Hz; respiration at 10 Hz). Minimal preprocessing is applied to preserve raw physiological structure; signals are segmented into 30-second windows without manual sleep staging. External validation is conducted using the Wisconsin Sleep Cohort, which differs demographically and in PSG acquisition protocols, strengthening generalizability claims.
+
+Methodology
+
+The methodological core is a self-supervised residual–transformer architecture trained via masked signal reconstruction. PSG segments are embedded into a 256-dimensional latent space using residual blocks for local patterns and transformer layers for long-range dependencies. A similarity loss combined with a Total Coding Rate regularization prevents representational collapse.
+A key innovation is the derivation of disease vectors, computed as the difference between latent centroids of disease-positive and disease-negative groups. Individual-level projection scores are obtained by projecting a subject’s embeddings onto these vectors, yielding interpretable scalar measures of alignment with disease-specific physiological patterns. These scores are then used in downstream logistic regression models alongside traditional covariates.
+
+Results
+
+The results show strong modality-specific patterns: ECG-derived scores are highly predictive of cardiac conditions such as atrial fibrillation and heart failure; EEG-derived scores are associated with hypertension and cardiovascular mortality; respiratory signals provide complementary predictive value. Combining projection scores with Framingham Risk Score consistently improves AUCs across prevalent and incident outcomes, with robust replication in the external cohort.
+
+Discussion
+
+The discussion emphasizes that raw PSG contains latent cardiovascular risk information beyond conventional sleep metrics. The authors highlight interpretability as a key strength, since projection scores provide continuous, clinically meaningful indicators rather than black-box predictions. Limitations include reliance on cohort-level disease labels to define vectors and the need for further prospective validation. The study concludes that self-supervised PSG analysis can augment existing cardiovascular risk stratification pipelines.
+
+9. Title : A Foundation Model for Sleep-Based Risk Stratification and Clinical Outcomes
+Abstract
+
+This paper introduces a large-scale foundation model for sleep health that integrates raw PSG time-series data with longitudinal electronic medical records. Using a transformer-based architecture trained on over 10,000 PSG studies, the model generates embeddings that capture latent sleep physiology. Unsupervised clustering of these embeddings reveals distinct sleep-based risk groups with strong associations to cardiovascular disease, neurological outcomes, and all-cause mortality over long-term follow-up. External validation confirms robustness, positioning the model as a clinically scalable risk stratification framework. 
+
+nihpp-rs6307069v1
+
+Introduction
+
+The introduction critiques current sleep medicine practices, particularly the overreliance on single summary measures like the apnea–hypopnea index (AHI). While PSG captures multimodal physiological data across several hours, most of this information is discarded during diagnosis. The authors argue that recent advances in foundation models—successful in language and vision—can be adapted to time-series PSG data to learn general-purpose representations. The goal is not just prediction, but discovery of latent sleep phenotypes associated with long-term disease trajectories.
+
+Data and Preprocessing
+
+The study uses the STARLIT-10K clinical cohort from the Cleveland Clinic, consisting of in-laboratory PSG recordings collected over a decade and paired with rich EMR data. Signals include EEG, EOG, EMG, ECG, airflow, respiratory effort, SpO₂, snoring, and EtCO₂. Data are resampled to 128 Hz, filtered using modality-specific band-pass or high-pass filters, normalized, and segmented into 30-second epochs, each further divided into 3-second patches to align with clinical scoring conventions.
+
+Methodology
+
+A RoBERTa-based transformer is adapted for time-series modeling by replacing token embeddings with linear projections of PSG patches. The model is trained in a supervised multitask setting to predict sleep stages, respiratory events, and oxygen desaturations, ensuring physiologically meaningful embeddings. The CLS token output serves as a compact representation of entire PSG epochs and nights.
+Unsupervised clustering (primarily k-means with energy distance) is then applied to these embeddings, yielding stable solutions with two to five clusters. These clusters are interpreted post hoc as risk groups, ranked by observed disease incidence and mortality.
+
+Results
+
+Five distinct risk groups are identified, with a clear monotonic increase in cardiovascular, neurological, and mortality risk from the lowest- to highest-risk group. The highest-risk cluster shows markedly elevated hazard ratios for myocardial infarction, atrial fibrillation, heart failure, cognitive impairment, and all-cause mortality, even after adjusting for age, BMI, comorbidities, and AHI. Kaplan–Meier survival analysis confirms strong separation between groups. External validation using SHHS reproduces these associations, particularly for the simplified two-cluster solution.
+
+Discussion
+
+The discussion argues that learned sleep embeddings capture multidimensional physiological disruptions that conventional PSG metrics cannot. The authors emphasize that AHI-based severity grading fails to predict long-term outcomes as effectively as the embedding-derived risk groups. Strengths include large-scale longitudinal data, external validation, and clinical interpretability of clusters. Limitations include retrospective design, lack of treatment adherence data, and the need for prospective clinical trials. The paper concludes by framing sleep foundation models as a paradigm shift for personalized sleep medicine and risk stratification.
