@@ -38,6 +38,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from mesa_dataloader import create_mesa_dataloader
+
 
 # ============================================================================
 # Model Architecture Components
@@ -250,7 +252,8 @@ class ChannelAttentionFusion(nn.Module):
             fused, attention_weights = self.channel_attention(
                 channel_embeddings, channel_embeddings, channel_embeddings,
                 need_weights=False
-            ), None
+            )
+            # attention_weights will be None when need_weights=False
         
         fused = self.norm(fused + self.dropout(fused))
         
@@ -593,9 +596,13 @@ if __name__ == "__main__":
         return_attention=True
     )
     
-    # Test forward pass
-    batch_size = 2
-    x = torch.randn(batch_size, 20, 3, 3840)
+    dataloader = create_mesa_dataloader(
+        preprocessed_dir=r"C:\mesa",
+        annotation_dir="path/to/annotations",
+        seq_len=20,
+        batch_size=4,
+        shuffle=True
+    )
     
     output = model(x, return_attention=True)
     
