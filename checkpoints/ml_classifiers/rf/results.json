@@ -1,0 +1,46 @@
+{
+  "classifier": "rf",
+  "test_metrics": {
+    "accuracy": 0.8325242718446602,
+    "macro_precision": 0.06666666666666667,
+    "macro_recall": 0.01075268817204301,
+    "macro_f1": 0.018518518518518517,
+    "per_class": {
+      "insomnia": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "roc_auc": 0.5223196492626545
+      },
+      "restless leg": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "roc_auc": 0.5909475465313029
+      },
+      "apnea": {
+        "precision": 0.2,
+        "recall": 0.03225806451612903,
+        "f1": 0.05555555555555555,
+        "roc_auc": 0.5770891541783083
+      }
+    }
+  },
+  "val_metrics": {
+    "macro_f1": 0.0,
+    "per_class": {
+      "insomnia": {
+        "f1": 0.0,
+        "roc_auc": 0.5225189318453567
+      },
+      "restless leg": {
+        "f1": 0.0,
+        "roc_auc": 0.5888324873096447
+      },
+      "apnea": {
+        "f1": 0.0,
+        "roc_auc": 0.7413612565445026
+      }
+    }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "split": "test",
+  "metrics": {
+    "loss": 0.23811013538103837,
+    "accuracy": 0.8422330097087378,
+    "macro_precision": 0.0,
+    "macro_recall": 0.0,
+    "macro_f1": 0.0,
+    "per_class": {
+      "insomnia": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "roc_auc": 0.4665205261060183
+      },
+      "restless leg": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "roc_auc": 0.5891144952058658
+      },
+      "apnea": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "roc_auc": 0.6398272796545593
+      }
+    }
+  },
+  "optimal_thresholds": [
+    0.9999940391390134,
+    0.9999940391390134,
+    0.9999940391390134
+  ],
+  "checkpoint": "checkpoints/comorbidity\\checkpoint_epoch_50.pt"
+}
