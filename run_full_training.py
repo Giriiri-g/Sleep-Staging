@@ -19,24 +19,26 @@ if __name__ == "__main__":
     print(f"Preprocessed data: C:\\mesa")
     print(f"CSV file: {csv_path}")
     print(f"Training parameters (optimized for ~4 hour training):")
-    print(f"  - Epochs: 10")
+    print(f"  - Epochs: 8")
     print(f"  - Batch size: 512 (increased for efficiency)")
-    print(f"  - Max samples: 10,000 (subset for speed)")
+    print(f"  - Max samples: 5,000 (subset for speed)")
     print(f"  - Learning rate: 3e-4")
     print(f"  - Sequence length: 20 epochs")
+    print(f"  - Expected: ~7 batches/epoch * 2.5 min = ~17.5 min/epoch")
+    print(f"  - Total: ~2.3 hours for 8 epochs")
     print("="*70)
     print()
     
     train(
         preprocessed_dir=r"C:\mesa",
         csv_path=csv_path,
-        num_epochs=10,  # Reduced for 4-hour target
+        num_epochs=8,  # Reduced for 4-hour target
         batch_size=512,  # Much larger batch size
         learning_rate=3e-4,
         seq_len=20,
         train_split=0.7,
         val_split=0.15,
-        max_samples=10000,  # Limit dataset size
+        max_samples=5000,  # Limit dataset size to ensure <4 hours
         device=None,  # Auto-detect
         checkpoint_dir="checkpoints_mesa"
     )

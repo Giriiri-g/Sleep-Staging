@@ -221,8 +221,14 @@ class MESADataset(Dataset):
         # Load preprocessed tensor
         tensor = torch.load(pt_file)  # (4, T) where T is number of time samples
         
-        # Extract only first 3 channels (EEG1, EEG2, EEG3) - exclude 4th channel
-        eeg_tensor = tensor[:3, :]  # (3, T)
+        # Extract only first 3 channels (EEG1, EEG2, EEG3) - exclude 4th channel (Thor)
+        # Ensure we only use first 3 channels even if tensor has more
+        if tensor.shape[0] > 3:
+            eeg_tensor = tensor[:3, :]  # (3, T) - only first 3 channels
+        elif tensor.shape[0] == 3:
+            eeg_tensor = tensor  # Already has 3 channels
+        else:
+            raise ValueError(f"Expected at least 3 channels, got {tensor.shape[0]}")
         
         # Extract sequence of epochs
         start_sample = start_epoch * self.epoch_samples

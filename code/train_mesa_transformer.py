@@ -25,6 +25,30 @@ from mesa_transformer import MESATransformer
 from mesa_dataloader import MESADataset, create_mesa_dataloader
 
 
+class FocalLoss(nn.Module):
+    """
+    Focal Loss for handling class imbalance.
+    FL(p_t) = -alpha_t * (1 - p_t)^gamma * log(p_t)
+    """
+    def __init__(self, alpha=None, gamma=2.0, reduction='mean'):
+        super(FocalLoss, self).__init__()
+        self.alpha = alpha  # Weighting factor per class
+        self.gamma = gamma  # Focusing parameter
+        self.reduction = reduction
+        
+    def forward(self, inputs, targets):
+        ce_loss = nn.functional.cross_entropy(inputs, targets, weight=self.alpha, reduction='none')
+        pt = torch.exp(-ce_loss)  # pt = p if target class, otherwise 1-p
+        focal_loss = ((1 - pt) ** self.gamma) * ce_loss
+        
+        if self.reduction == 'mean':
+            return focal_loss.mean()
+        elif self.reduction == 'sum':
+            return focal_loss.sum()
+        else:
+            return focal_loss
+
+
 def compute_class_metrics(y_true: np.ndarray, y_pred: np.ndarray, class_names: list) -> Dict:
     """
     Compute class-wise and overall metrics.
@@ -143,11 +167,20 @@ def train_epoch(model, dataloader, criterion, optimizer, device, epoch: int) -> 
         logits_flat = logits.view(-1, num_classes)  # (batch*seq_len, num_classes)
         labels_flat = labels.view(-1)  # (batch*seq_len)
         
+        # Filter out invalid labels (shouldn't happen but safety check)
+        valid_mask = (labels_flat >= 0) & (labels_flat < num_classes)
+        if valid_mask.sum() == 0:
+            continue
+        
+        logits_flat_valid = logits_flat[valid_mask]
+        labels_flat_valid = labels_flat[valid_mask]
+        
         # Compute loss
-        loss = criterion(logits_flat, labels_flat)
+        loss = criterion(logits_flat_valid, labels_flat_valid)
         
         # Backward pass
         loss.backward()
+        # Gradient clipping for stability
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         optimizer.step()
         
@@ -187,16 +220,20 @@ def validate_epoch(model, dataloader, criterion, device) -> Tuple[float, np.ndar
             logits_flat = logits.view(-1, num_classes)
             labels_flat = labels.view(-1)
             
-            # Compute loss
-            loss = criterion(logits_flat, labels_flat)
-            total_loss += loss.item()
+            # Filter out invalid labels
+            valid_mask = (labels_flat >= 0) & (labels_flat < num_classes)
+            if valid_mask.sum() > 0:
+                logits_flat_valid = logits_flat[valid_mask]
+                labels_flat_valid = labels_flat[valid_mask]
+                loss = criterion(logits_flat_valid, labels_flat_valid)
+                total_loss += loss.item()
             
-            # Predictions
+            # Predictions (use all for metrics)
             predictions = torch.argmax(logits_flat, dim=1).cpu().numpy()
             all_predictions.extend(predictions)
             all_labels.extend(labels_flat.cpu().numpy())
     
-    avg_loss = total_loss / len(dataloader)
+    avg_loss = total_loss / max(1, len(dataloader))
     return avg_loss, np.array(all_labels), np.array(all_predictions)
 
 
@@ -211,8 +248,8 @@ def train(
     val_split: float = 0.15,
     device: str = None,
     checkpoint_dir: str = "checkpoints_mesa",
-    resume_from: str = None,
-    max_samples: int = None
+        resume_from: str = None,
+        max_samples: int = None
 ):
     """
     Train MESA Transformer model.
@@ -315,9 +352,56 @@ def train(
     num_params = sum(p.numel() for p in model.parameters())
     print(f"Model parameters: {num_params:,}")
     
-    # Loss and optimizer
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-5)
+    # Compute class weights from training data to handle class imbalance
+    print("\nComputing class weights from training data...")
+    class_counts = torch.zeros(num_classes, dtype=torch.float32)
+    # Sample a subset of training data to compute class distribution
+    sample_size = min(10000, len(train_dataset))
+    sample_indices = torch.randperm(len(train_dataset), generator=torch.Generator().manual_seed(42))[:sample_size]
+    
+    for idx in sample_indices:
+        _, labels = train_dataset[idx]
+        for label in labels.flatten():
+            if 0 <= label < num_classes:
+                class_counts[label] += 1
+    
+    # Avoid division by zero
+    class_counts = torch.clamp(class_counts, min=1.0)
+    
+    # Compute weights: stronger inverse frequency weighting
+    # Use square root of inverse frequency for more balanced weights
+    total_samples = class_counts.sum()
+    # Inverse frequency with square root to make it less extreme
+    class_weights = torch.sqrt(total_samples / (class_counts + 1e-5))
+    
+    # Normalize so max weight is reasonable (cap at 10x the minimum)
+    min_weight = class_weights.min()
+    max_weight_allowed = min_weight * 10.0
+    class_weights = torch.clamp(class_weights, max=max_weight_allowed)
+    
+    # Normalize to sum to num_classes (helps with stability)
+    class_weights = class_weights / class_weights.mean()
+    
+    print(f"Class distribution (sample): {class_counts.int().tolist()}")
+    print(f"Class weights (sqrt inverse freq): {class_weights.tolist()}")
+    
+    class_weights = class_weights.to(device)
+    
+    # Use Focal Loss instead of CrossEntropy for better handling of class imbalance
+    # Focal loss focuses learning on hard examples
+    criterion = FocalLoss(
+        alpha=class_weights,
+        gamma=2.0,  # Focusing parameter (higher = more focus on hard examples)
+        reduction='mean'
+    )
+    
+    # Optimizer with stronger weight decay for regularization
+    optimizer = optim.AdamW(
+        model.parameters(), 
+        lr=learning_rate, 
+        weight_decay=1e-4,  # Increased from 1e-5 for stronger regularization
+        betas=(0.9, 0.999)
+    )
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs, eta_min=1e-6)
     
     # Checkpoint directory
@@ -326,7 +410,7 @@ def train(
     
     # Resume from checkpoint if provided
     start_epoch = 0
-    best_val_acc = 0.0
+    best_val_acc = 0.0  # Will store macro F1 score
     if resume_from and Path(resume_from).exists():
         print(f"\nResuming from checkpoint: {resume_from}")
         checkpoint = torch.load(resume_from, map_location=device)
@@ -364,9 +448,16 @@ def train(
         print(f"  Val Loss:   {val_loss:.4f}, Val Acc:   {val_acc*100:.2f}%")
         print(f"  Learning Rate: {current_lr:.6f}")
         
-        # Save checkpoint if best validation accuracy
-        if val_acc > best_val_acc:
-            best_val_acc = val_acc
+        # Compute macro F1 for better model selection (considers all classes equally)
+        _, _, val_f1_macro, _ = precision_recall_fscore_support(
+            val_labels, val_preds, labels=list(range(num_classes)), average='macro', zero_division=0
+        )
+        
+        # Save checkpoint if best validation macro F1 (better for imbalanced data)
+        # Fallback to accuracy if F1 is same
+        use_f1 = val_f1_macro > best_val_acc if isinstance(best_val_acc, float) else True
+        if use_f1 or (val_f1_macro == best_val_acc and val_acc > best_val_acc):
+            best_val_acc = val_f1_macro  # Store macro F1 instead of accuracy
             checkpoint = {
                 'epoch': epoch,
                 'model_state_dict': model.state_dict(),
@@ -377,7 +468,7 @@ def train(
                 'val_acc': val_acc
             }
             torch.save(checkpoint, checkpoint_path / 'best_model.pth')
-            print(f"  ✓ Saved best model (val acc: {val_acc*100:.2f}%)")
+            print(f"  ✓ Saved best model (val macro F1: {val_f1_macro*100:.2f}%, val acc: {val_acc*100:.2f}%)")
         
         # Save periodic checkpoint
         if (epoch + 1) % 10 == 0:
@@ -415,6 +506,19 @@ def train(
     # Also compute validation metrics
     val_metrics = compute_class_metrics(val_labels, val_preds, class_names)
     print_metrics(val_metrics, class_names, stage="Validation Set")
+    
+    # Save metrics in the best model checkpoint for later visualization
+    try:
+        best_checkpoint_path = checkpoint_path / 'best_model.pth'
+        if best_checkpoint_path.exists():
+            best_checkpoint = torch.load(best_checkpoint_path, map_location=device)
+            best_checkpoint['test_metrics'] = test_metrics
+            best_checkpoint['val_metrics'] = val_metrics
+            best_checkpoint['class_names'] = class_names
+            torch.save(best_checkpoint, best_checkpoint_path)
+            print(f"\n✓ Saved metrics to {best_checkpoint_path} for visualization")
+    except Exception as e:
+        print(f"\n⚠ Could not save metrics to checkpoint: {e}")
     
     return model, test_metrics
 
