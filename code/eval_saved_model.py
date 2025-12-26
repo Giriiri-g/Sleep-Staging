@@ -50,7 +50,7 @@ from utils import (
 )
 
 
-sns.set_style("whitegrid")
+sns.set_style("white")
 plt.rcParams["figure.figsize"] = (12, 8)
 
 
