@@ -1,0 +1,110 @@
+{
+  "test_metrics": {
+    "loss": 0.01910784296118296,
+    "accuracy": 0.043689320388349516,
+    "macro_precision": 0.05620686503039444,
+    "macro_recall": 0.4946236559139785,
+    "macro_f1": 0.09740982043540442,
+    "per_class": {
+      "insomnia": {
+        "precision": 0.06372549019607843,
+        "recall": 1.0,
+        "f1": 0.11981566820276497,
+        "roc_auc": 0.5163411717815863
+      },
+      "restless leg": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "roc_auc": 0.48998871968415114
+      },
+      "apnea": {
+        "precision": 0.1048951048951049,
+        "recall": 0.4838709677419355,
+        "f1": 0.1724137931034483,
+        "roc_auc": 0.6001185335704005
+      }
+    }
+  },
+  "classification_report": {
+    "insomnia": {
+      "precision": 0.06372549019607843,
+      "recall": 1.0,
+      "f1-score": 0.11981566820276497,
+      "support": 26.0
+    },
+    "restless leg": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 18.0
+    },
+    "apnea": {
+      "precision": 0.1048951048951049,
+      "recall": 0.4838709677419355,
+      "f1-score": 0.1724137931034483,
+      "support": 31.0
+    },
+    "micro avg": {
+      "precision": 0.07441016333938294,
+      "recall": 0.5466666666666666,
+      "f1-score": 0.13099041533546327,
+      "support": 75.0
+    },
+    "macro avg": {
+      "precision": 0.05620686503039444,
+      "recall": 0.4946236559139785,
+      "f1-score": 0.09740982043540442,
+      "support": 75.0
+    },
+    "weighted avg": {
+      "precision": 0.0654481466246172,
+      "recall": 0.5466666666666666,
+      "f1-score": 0.11280046612638382,
+      "support": 75.0
+    },
+    "samples avg": {
+      "precision": 0.07281553398058252,
+      "recall": 0.08940129449838187,
+      "f1-score": 0.07726537216828477,
+      "support": 75.0
+    }
+  },
+  "optimal_thresholds": [
+    0.09016373601625757,
+    0.9999940391390134,
+    0.3837165479567917
+  ],
+  "args": {
+    "csv_path": "mesa_final.csv",
+    "output_dir": "checkpoints/comorbidity_aggressive",
+    "batch_size": 32,
+    "epochs": 100,
+    "lr": 0.001,
+    "weight_decay": 1e-05,
+    "test_size": 0.2,
+    "val_size": 0.1,
+    "seed": 42,
+    "max_seq_len": null,
+    "rnn_type": "LSTM",
+    "rnn_hidden_dim": 128,
+    "rnn_num_layers": 2,
+    "embedding_dim": 32,
+    "dropout": 0.3,
+    "resume": null,
+    "use_stratified_split": true,
+    "loss_type": "focal",
+    "focal_gamma": 3.0,
+    "class_weight_method": "aggressive",
+    "optimize_thresholds": true,
+    "threshold_metric": "f1",
+    "use_weighted_sampling": true,
+    "weight_method": "per_class",
+    "class_weight_multiplier": 2.0,
+    "early_stop_metric": "macro_f1",
+    "early_stop_patience": 15,
+    "min_delta": 0.001,
+    "label_smoothing": 0.0
+  },
+  "timestamp": "2025-12-20T19:25:14.137735"
+}

@@ -1,0 +1,95 @@
+{
+  "classifier": "svm",
+  "test_metrics": {
+    "accuracy": 0.8422330097087378,
+    "macro_precision": 0.0,
+    "macro_recall": 0.0,
+    "macro_f1": 0.0,
+    "per_class": {
+      "insomnia": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "roc_auc": 0.5085691510561977
+      },
+      "restless leg": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "roc_auc": 0.5304568527918783
+      },
+      "apnea": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "roc_auc": 0.6561679790026247
+      }
+    }
+  },
+  "val_metrics": {
+    "macro_f1": 0.0,
+    "per_class": {
+      "insomnia": {
+        "f1": 0.0,
+        "roc_auc": 0.49023515344758867
+      },
+      "restless leg": {
+        "f1": 0.0,
+        "roc_auc": 0.5741680767061478
+      },
+      "apnea": {
+        "f1": 0.0,
+        "roc_auc": 0.6506108202443281
+      }
+    }
+  },
+  "best_hyperparameters": [
+    {
+      "C": 0.1,
+      "gamma": "0.001",
+      "class_weight": {
+        "0": 1.0,
+        "1": 29.604394912719727
+      }
+    },
+    {
+      "C": 0.5,
+      "gamma": "auto",
+      "class_weight": {
+        "0": 1.0,
+        "1": 42.24615478515625
+      }
+    },
+    {
+      "C": 0.5,
+      "gamma": "0.01",
+      "class_weight": {
+        "0": 1.0,
+        "1": 24.14545440673828
+      }
+    }
+  ],
+  "optimized_thresholds": [
+    0.9999940391390134,
+    0.9999940391390134,
+    0.9999940391390134
+  ],
+  "test_metrics_default_threshold": {
+    "macro_f1": 0.0,
+    "macro_recall": 0.0,
+    "per_class": {
+      "insomnia": {
+        "f1": 0.0,
+        "recall": 0.0
+      },
+      "restless leg": {
+        "f1": 0.0,
+        "recall": 0.0
+      },
+      "apnea": {
+        "f1": 0.0,
+        "recall": 0.0
+      }
+    }
+  }
+}
