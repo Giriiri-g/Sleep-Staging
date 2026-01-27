@@ -1,8 +1,6 @@
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
 import pandas as pd
+from torch.utils.data import Dataset
 
 STAGE_TO_IDX = {
     "W": 0,
@@ -17,27 +15,47 @@ NUM_CLASSES = 5
 
 
 class SleepEDFSequenceDataset(Dataset):
-    def __init__(self, csv_path):
+    """
+    Each sample:
+      x: [2W+1, 3000]
+      y: scalar (center epoch label)
+    """
+
+    def __init__(self, csv_path, window=5):
         self.df = pd.read_csv(csv_path)
+        self.window = window
+        self.samples = []
+
+        for _, row in self.df.iterrows():
+            x = torch.load(row["tensor_path"])  # [T, 3000]
+            stages = row["stage_sequence"].split(" ")
+            y = torch.tensor([STAGE_TO_IDX[s] for s in stages])
+
+            T = len(y)
+            for t in range(T):
+                self.samples.append((x, y, t))
 
     def __len__(self):
-        return len(self.df)
+        return len(self.samples)
 
     def __getitem__(self, idx):
-        row = self.df.iloc[idx]
+        x, y, t = self.samples[idx]
+        W = self.window
+        L = x.shape[1]
 
-        x = torch.load(row["tensor_path"])        # [T, 3000]
-        stages = row["stage_sequence"].split(" ")
-        y = torch.tensor([STAGE_TO_IDX[s] for s in stages], dtype=torch.long)
+        start = max(0, t - W)
+        end = min(len(y), t + W + 1)
 
-        return x.float(), y
+        window_x = x[start:end]
 
+        # left padding
+        if start > t - W:
+            pad = torch.zeros((W - (t - start), L))
+            window_x = torch.cat([pad, window_x], dim=0)
 
-def collate_fn(batch):
-    xs, ys = zip(*batch)
-    lengths = torch.tensor([x.shape[0] for x in xs])
+        # right padding
+        if end < t + W + 1:
+            pad = torch.zeros((t + W + 1 - end, L))
+            window_x = torch.cat([window_x, pad], dim=0)
 
-    xs = nn.utils.rnn.pad_sequence(xs, batch_first=True)  # [B, T, 3000]
-    ys = nn.utils.rnn.pad_sequence(ys, batch_first=True, padding_value=-1)
-
-    return xs, ys, lengths
+        return window_x.float(), y[t]
