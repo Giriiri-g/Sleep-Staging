@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import time
 from dataset import NUM_CLASSES
 
 
@@ -61,11 +62,19 @@ class EpochEncoder(nn.Module):
 
     def forward(self, x):
         # x: [B, 21, 3000]
+        start_time = time.time()
         B, T, L = x.shape
         x = x.view(B * T, 1, L)
+        pyramid_start = time.time()
         f = self.pyramid(x)
+        pyramid_time = time.time() - pyramid_start
         f = self.pool(f).squeeze(-1)
+        fc_start = time.time()
         f = self.fc(f)
+        fc_time = time.time() - fc_start
+        total_time = time.time() - start_time
+        if B > 1:  # Log for batches, not single samples
+            print(f"[DEBUG] EpochEncoder forward: Pyramid={pyramid_time:.4f}s, FC={fc_time:.4f}s, Total={total_time:.4f}s")
         return f.view(B, T, -1)
 
 

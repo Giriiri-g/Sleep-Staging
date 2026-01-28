@@ -1,5 +1,6 @@
 import torch
 import pandas as pd
+import time
 from torch.utils.data import Dataset
 
 STAGE_TO_IDX = {
@@ -22,18 +23,29 @@ class SleepEDFSequenceDataset(Dataset):
     """
 
     def __init__(self, csv_path, window=5):
+        print(f"[DEBUG] Loading dataset from {csv_path}")
+        start_time = time.time()
         self.df = pd.read_csv(csv_path)
+        print(f"[DEBUG] CSV loaded in {time.time() - start_time:.2f}s, {len(self.df)} recordings")
         self.window = window
         self.samples = []
 
-        for _, row in self.df.iterrows():
+        total_samples = 0
+        for idx, row in self.df.iterrows():
+            tensor_start = time.time()
             x = torch.load(row["tensor_path"])  # [T, 3000]
+            tensor_load_time = time.time() - tensor_start
             stages = row["stage_sequence"].split(" ")
             y = torch.tensor([STAGE_TO_IDX[s] for s in stages])
 
             T = len(y)
             for t in range(T):
                 self.samples.append((x, y, t))
+            total_samples += T
+            if idx % 10 == 0:  # Log every 10 recordings
+                print(f"[DEBUG] Processed recording {idx+1}/{len(self.df)}, tensor load time: {tensor_load_time:.3f}s, total samples so far: {total_samples}")
+
+        print(f"[DEBUG] Dataset initialized with {len(self.samples)} samples in {time.time() - start_time:.2f}s")
 
     def __len__(self):
         return len(self.samples)
