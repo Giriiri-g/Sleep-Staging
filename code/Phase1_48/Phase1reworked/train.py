@@ -2,8 +2,8 @@ import json
 import torch
 import numpy as np
 import time
-from torch.utils.data import DataLoader, Subset
-from sklearn.model_selection import KFold
+from torch.utils.data import DataLoader, Subset, random_split
+from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
 from dataset import SleepEDFSequenceDataset
@@ -34,20 +34,20 @@ def evaluate(model, loader, device):
     )
 
 
-def train_fold(fold, train_idx, val_idx, dataset, device):
-    print(f"[DEBUG] Starting train_fold for fold {fold}, train samples: {len(train_idx)}, val samples: {len(val_idx)}")
+def train_model(train_dataset, val_dataset, device):
+    print(f"[DEBUG] Starting training, train samples: {len(train_dataset)}, val samples: {len(val_dataset)}")
     start_time = time.time()
 
     train_loader = DataLoader(
-        Subset(dataset, train_idx),
-        batch_size=4,
+        train_dataset,
+        batch_size=8,  # Increased batch size for faster training
         shuffle=True,
         num_workers=4
     )
 
     val_loader = DataLoader(
-        Subset(dataset, val_idx),
-        batch_size=4,
+        val_dataset,
+        batch_size=8,
         shuffle=False,
         num_workers=4
     )
@@ -67,41 +67,41 @@ def train_fold(fold, train_idx, val_idx, dataset, device):
     )
 
     criterion = FocalLoss(gamma=2)
+    scaler = torch.cuda.amp.GradScaler()  # AMP scaler
     best_f1 = -1
-    fold_logs = []
-    print(f"[DEBUG] Optimizer, scheduler, criterion initialized for fold {fold}.")
+    logs = []
+    print(f"[DEBUG] Optimizer, scheduler, criterion initialized.")
     for epoch in range(50):
         epoch_start = time.time()
         model.train()
-        print(f"[DEBUG] Epoch {epoch} training started for fold {fold}.")
+        print(f"[DEBUG] Epoch {epoch} training started.")
         total_loss = 0
 
         batch_times = []
-        for batch_idx, (x, y) in enumerate(tqdm(train_loader, desc=f"Fold {fold} Epoch {epoch}")):
+        for batch_idx, (x, y) in enumerate(tqdm(train_loader, desc=f"Epoch {epoch}")):
             batch_start = time.time()
             x, y = x.to(device), y.to(device)
             data_load_time = time.time() - batch_start
 
             optimizer.zero_grad()
-            forward_start = time.time()
-            logits = model(x)
-            forward_time = time.time() - forward_start
+            with torch.cuda.amp.autocast():  # AMP forward pass
+                forward_start = time.time()
+                logits = model(x)
+                forward_time = time.time() - forward_start
 
-            loss_start = time.time()
-            loss = criterion(logits, y)
-            loss_time = time.time() - loss_start
+                loss_start = time.time()
+                loss = criterion(logits, y)
+                loss_time = time.time() - loss_start
 
-            backward_start = time.time()
-            loss.backward()
-            backward_time = time.time() - backward_start
-
-            optimizer.step()
+            scaler.scale(loss).backward()  # AMP backward pass
+            scaler.step(optimizer)
+            scaler.update()
             total_loss += loss.item()
 
             batch_total = time.time() - batch_start
             batch_times.append(batch_total)
             if batch_idx % 100 == 0:  # Log every 100 batches
-                print(f"[DEBUG] Batch {batch_idx}: DataLoad={data_load_time:.3f}s, Forward={forward_time:.3f}s, Loss={loss_time:.3f}s, Backward={backward_time:.3f}s, Total={batch_total:.3f}s")
+                print(f"[DEBUG] Batch {batch_idx}: DataLoad={data_load_time:.3f}s, Forward={forward_time:.3f}s, Loss={loss_time:.3f}s, Total={batch_total:.3f}s")
 
         avg_batch_time = sum(batch_times) / len(batch_times) if batch_times else 0
         print(f"[DEBUG] Epoch {epoch} training completed in {time.time() - epoch_start:.2f}s, avg batch time: {avg_batch_time:.3f}s")
@@ -114,21 +114,20 @@ def train_fold(fold, train_idx, val_idx, dataset, device):
         scheduler.step(metrics["f1_weighted"])
 
         log = {
-            "fold": fold,
             "epoch": epoch,
             "train_loss": total_loss / len(train_loader),
             **metrics
         }
 
-        fold_logs.append(log)
+        logs.append(log)
 
         if metrics["f1_weighted"] > best_f1:
             best_f1 = metrics["f1_weighted"]
-            torch.save(model.state_dict(), f"best_model_fold_{fold}.pt")
+            torch.save(model.state_dict(), "best_model.pt")
 
-        print(f"[Fold {fold}] Epoch {epoch} | F1={metrics['f1_weighted']:.4f}")
+        print(f"Epoch {epoch} | F1={metrics['f1_weighted']:.4f}")
 
-    return fold_logs
+    return logs
 
 
 def main():
@@ -140,16 +139,17 @@ def main():
         window=5
     )
     print("Dataset loaded.")
-    kf = KFold(n_splits=10, shuffle=True, random_state=42)
-    all_logs = []
 
-    for fold, (train_idx, val_idx) in enumerate(kf.split(dataset)):
-        print(f"Starting fold {fold}...")
-        fold_logs = train_fold(fold, train_idx, val_idx, dataset, device)
-        all_logs.extend(fold_logs)
+    # Simple train/val split instead of k-fold
+    train_size = int(0.8 * len(dataset))
+    val_size = len(dataset) - train_size
+    train_dataset, val_dataset = random_split(dataset, [train_size, val_size], generator=torch.Generator().manual_seed(42))
+
+    print("Starting training...")
+    logs = train_model(train_dataset, val_dataset, device)
 
     with open("training_metrics.json", "w") as f:
-        json.dump(all_logs, f, indent=4)
+        json.dump(logs, f, indent=4)
 
     print("Training complete. Metrics saved.")
 
