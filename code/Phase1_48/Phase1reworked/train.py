@@ -40,14 +40,14 @@ def train_model(train_dataset, val_dataset, device):
 
     train_loader = DataLoader(
         train_dataset,
-        batch_size=8,  # Increased batch size for faster training
+        batch_size=64,  # Increased batch size for faster training
         shuffle=True,
         num_workers=4
     )
 
     val_loader = DataLoader(
         val_dataset,
-        batch_size=8,
+        batch_size=64,
         shuffle=False,
         num_workers=4
     )
@@ -106,26 +106,29 @@ def train_model(train_dataset, val_dataset, device):
         avg_batch_time = sum(batch_times) / len(batch_times) if batch_times else 0
         print(f"[DEBUG] Epoch {epoch} training completed in {time.time() - epoch_start:.2f}s, avg batch time: {avg_batch_time:.3f}s")
 
-        val_start = time.time()
-        metrics = evaluate(model, val_loader, device)
-        val_time = time.time() - val_start
-        print(f"[DEBUG] Validation completed in {val_time:.2f}s")
+        if (epoch + 1) % 5 == 0:
+            val_start = time.time()
+            metrics = evaluate(model, val_loader, device)
+            val_time = time.time() - val_start
+            print(f"[DEBUG] Validation completed in {val_time:.2f}s")
 
-        scheduler.step(metrics["f1_weighted"])
+            scheduler.step(metrics["f1_weighted"])
 
-        log = {
-            "epoch": epoch,
-            "train_loss": total_loss / len(train_loader),
-            **metrics
-        }
+            log = {
+                "epoch": epoch,
+                "train_loss": total_loss / len(train_loader),
+                **metrics
+            }
 
-        logs.append(log)
+            logs.append(log)
 
-        if metrics["f1_weighted"] > best_f1:
-            best_f1 = metrics["f1_weighted"]
-            torch.save(model.state_dict(), "best_model.pt")
+            if metrics["f1_weighted"] > best_f1:
+                best_f1 = metrics["f1_weighted"]
+                torch.save(model.state_dict(), "best_model.pt")
 
-        print(f"Epoch {epoch} | F1={metrics['f1_weighted']:.4f}")
+            print(f"Epoch {epoch} | F1={metrics['f1_weighted']:.4f}")
+        else:
+            print(f"Epoch {epoch} training completed (validation skipped)")
 
     return logs
 
