@@ -33,7 +33,7 @@ class SleepEDFSequenceDataset(Dataset):
         total_samples = 0
         for idx, row in self.df.iterrows():
             tensor_start = time.time()
-            x = torch.load(row["tensor_path"])  # [T, 3000]
+            x = torch.load("/content/drive/MyDrive/sleep_staging"+row["tensor_path"])  # [T, 3000]
             tensor_load_time = time.time() - tensor_start
             stages = row["stage_sequence"].split(" ")
             y = torch.tensor([STAGE_TO_IDX[s] for s in stages])
