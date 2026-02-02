@@ -69,14 +69,28 @@ def drop_bad_rows(X, y):
 
 
 def impute_and_scale(X):
+    print("  → Dropping all-NaN columns")
+    before = X.shape[1]
+
+    # Drop columns with all NaN
+    non_empty_cols = X.columns[X.notna().any()]
+    X = X[non_empty_cols]
+
+    after = X.shape[1]
+    dropped = before - after
+    if dropped > 0:
+        print(f"    Dropped {dropped} all-NaN columns")
+
     print("  → Median imputation + scaling")
+
     imputer = SimpleImputer(strategy="median")
     scaler = StandardScaler()
 
     X_imp = imputer.fit_transform(X)
     X_scaled = scaler.fit_transform(X_imp)
 
-    return X_scaled
+    return X_scaled, X.columns.tolist()
+
 
 
 # ======================================================
@@ -99,8 +113,9 @@ def stability_selection_elasticnet(X, y, feature_names):
         n_jobs=-1,
         random_state=RANDOM_STATE
     )
-
+    print(f"    Total bootstraps: {N_BOOTSTRAPS}")
     for i in range(N_BOOTSTRAPS):
+        # print(f"    Bootstrap {i + 1}/{N_BOOTSTRAPS}")
         Xb, yb = resample(
             X, y,
             n_samples=n_samples,
@@ -180,8 +195,8 @@ def run_pipeline():
         X, y = drop_nan_targets(X, y)
         X, y = drop_bad_rows(X, y)
 
-        feature_names = X.columns.tolist()
-        X_scaled = impute_and_scale(X)
+        X_scaled, feature_names = impute_and_scale(X)
+
 
         # Stability selection
         stable_features = stability_selection_elasticnet(
