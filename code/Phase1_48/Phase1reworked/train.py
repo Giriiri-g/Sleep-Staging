@@ -15,11 +15,12 @@ def logger(msg):
 
 
 def evaluate(model, loader, device):
-    print("[EVAL] Starting evaluation...")
+    logger("[EVAL] Starting evaluation...")
     model.eval()
     y_true, y_pred, y_prob = [], [], []
     batch_count = 0
 
+    use_amp = device.type == "cuda"
 
     with torch.no_grad():
         for x, y, padding_mask in loader:
@@ -30,7 +31,8 @@ def evaluate(model, loader, device):
             y = y.to(device)
             padding_mask = padding_mask.to(device)
 
-            logits = model(x, padding_mask) # [1, T, C]
+            with torch.amp.autocast(device_type='cuda', enabled=use_amp):
+                logits = model(x, padding_mask) # [1, T, C]
             probs = torch.softmax(logits, dim=-1)
             preds = probs.argmax(dim=-1)
 
@@ -39,10 +41,10 @@ def evaluate(model, loader, device):
             y_true.extend(y[valid].cpu().numpy())
             y_pred.extend(preds[valid].cpu().numpy())
             y_prob.extend(probs[valid].cpu().numpy())
-    print(f"[EVAL] Finished forward passes.")
-    print(f"[EVAL] Total valid samples: {len(y_true)}")
+    logger(f"[EVAL] Finished forward passes.")
+    logger(f"[EVAL] Total valid samples: {len(y_true)}")
 
-    print("[EVAL] Computing metrics...")
+    logger("[EVAL] Computing metrics...")
 
     return compute_metrics(
         np.array(y_true),
@@ -77,11 +79,11 @@ def sleep_collate_fn(batch):
 
 
 def train_model(train_dataset, val_dataset, device):
-    print(f"[DEBUG] Starting training, train samples: {len(train_dataset)}, val samples: {len(val_dataset)}")
+    logger(f"[DEBUG] Starting training, train samples: {len(train_dataset)}, val samples: {len(val_dataset)}")
 
     train_loader = DataLoader(
         train_dataset,
-        batch_size=8,
+        batch_size=4,
         shuffle=True,
         num_workers=2,
         collate_fn=sleep_collate_fn,
@@ -91,7 +93,7 @@ def train_model(train_dataset, val_dataset, device):
 
     val_loader = DataLoader(
         val_dataset,
-        batch_size=8,
+        batch_size=4,
         shuffle=False,
         num_workers=2,
         collate_fn=sleep_collate_fn,
@@ -124,10 +126,10 @@ def train_model(train_dataset, val_dataset, device):
     scaler = torch.amp.GradScaler() # AMP scaler
     best_f1 = -1
 
-    print(f"[DEBUG] Optimizer, scheduler, criterion initialized.")
+    logger(f"[DEBUG] Optimizer, scheduler, criterion initialized.")
     for epoch in range(50):
         model.train()
-        print(f"[DEBUG] Epoch {epoch} training started.")
+        logger(f"[DEBUG] Epoch {epoch} training started.")
         total_loss = 0
 
         for batch_idx, (x, y, padding_mask) in enumerate(train_loader):
@@ -150,9 +152,9 @@ def train_model(train_dataset, val_dataset, device):
             if device.type == "cuda" and batch_idx % 50 == 0:
                 mem_alloc = torch.cuda.memory_allocated() / 1024**2
                 mem_reserved = torch.cuda.memory_reserved() / 1024**2
-                logger(f"GPU Memory | Allocated: {mem_alloc:.1f} MB | Reserved: {mem_reserved:.1f} MB")
+                print(f"GPU Memory | Allocated: {mem_alloc:.1f} MB | Reserved: {mem_reserved:.1f} MB")
             total_loss += loss.item()
-            if batch_idx % 20 == 0:
+            if batch_idx % 10 == 0:
                 logger(f"Epoch {epoch} | Batch {batch_idx}/{len(train_loader)} | Loss: {loss.item():.4f}")
 
 
@@ -182,7 +184,7 @@ def train_model(train_dataset, val_dataset, device):
 
 
 
-    print("Training completed")
+    logger("Training completed")
 
 def main():
     set_seed(42)
