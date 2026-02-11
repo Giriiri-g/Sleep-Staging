@@ -10,7 +10,7 @@ from losses import FocalLoss
 from utils import set_seed, compute_metrics
 import time
 
-def log(msg):
+def logger(msg):
     print(f"[{time.strftime('%H:%M:%S')}] {msg}")
 
 
@@ -95,9 +95,9 @@ def train_model(train_dataset, val_dataset, device):
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-    log(f"Model initialized on {device}")
-    log(f"Total parameters: {total_params:,}")
-    log(f"Trainable parameters: {trainable_params:,}")
+    logger(f"Model initialized on {device}")
+    logger(f"Total parameters: {total_params:,}")
+    logger(f"Trainable parameters: {trainable_params:,}")
 
 
     optimizer = torch.optim.Adam(
@@ -140,14 +140,14 @@ def train_model(train_dataset, val_dataset, device):
             if device.type == "cuda" and batch_idx % 50 == 0:
                 mem_alloc = torch.cuda.memory_allocated() / 1024**2
                 mem_reserved = torch.cuda.memory_reserved() / 1024**2
-                log(f"GPU Memory | Allocated: {mem_alloc:.1f} MB | Reserved: {mem_reserved:.1f} MB")
+                logger(f"GPU Memory | Allocated: {mem_alloc:.1f} MB | Reserved: {mem_reserved:.1f} MB")
             total_loss += loss.item()
             if batch_idx % 20 == 0:
-                log(f"Epoch {epoch} | Batch {batch_idx}/{len(train_loader)} | Loss: {loss.item():.4f}")
+                logger(f"Epoch {epoch} | Batch {batch_idx}/{len(train_loader)} | Loss: {loss.item():.4f}")
 
 
         metrics = evaluate(model, val_loader, device)
-        log(f"Validation Results | F1: {metrics['f1_weighted']:.4f} | Acc: {metrics['accuracy']:.4f}")
+        logger(f"Validation Results | F1: {metrics['f1_weighted']:.4f} | Acc: {metrics['accuracy']:.4f}")
         scheduler.step(metrics["f1_weighted"])
         log = {
             "epoch": epoch,
@@ -162,7 +162,7 @@ def train_model(train_dataset, val_dataset, device):
             torch.save(model.state_dict(), "best_model.pt")
         current_lr = optimizer.param_groups[0]["lr"]
 
-        log(
+        logger(
             f"Epoch {epoch} Completed | "
             f"Loss: {total_loss / len(train_loader):.4f} | "
             f"F1: {metrics['f1_weighted']:.4f} | "
