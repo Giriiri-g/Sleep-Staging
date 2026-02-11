@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import time
+import math
 from dataset import NUM_CLASSES
 
 
@@ -61,26 +61,43 @@ class EpochEncoder(nn.Module):
         self.fc = nn.Linear(64, embed_dim)
 
     def forward(self, x):
-        # x: [B, 21, 3000]
-        start_time = time.time()
         B, T, L = x.shape
         x = x.view(B * T, 1, L)
-        pyramid_start = time.time()
         f = self.pyramid(x)
-        pyramid_time = time.time() - pyramid_start
         f = self.pool(f).squeeze(-1)
-        fc_start = time.time()
         f = self.fc(f)
-        fc_time = time.time() - fc_start
-        total_time = time.time() - start_time
-        if B > 1:  # Log for batches, not single samples
-            print(f"[DEBUG] EpochEncoder forward: Pyramid={pyramid_time:.4f}s, FC={fc_time:.4f}s, Total={total_time:.4f}s")
-        return f.view(B, T, -1)
+        result = f.view(B, T, -1)
+        return result
+
+
+class PositionalEncoding(nn.Module):
+    def __init__(self, d_model, max_len=512):
+        super().__init__()
+
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len).unsqueeze(1)
+        div_term = torch.exp(
+            torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model)
+        )
+
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+
+        pe = pe.unsqueeze(0)  # [1, max_len, d_model]
+        self.register_buffer("pe", pe)
+
+    def forward(self, x):
+        """
+        x: [B, T, D]
+        """
+        T = x.size(1)
+        return x + self.pe[:, :T]
 
 
 class SleepTransformer(nn.Module):
-    def __init__(self, embed_dim=128, heads=4, layers=2, dropout=0.2):
+    def __init__(self, embed_dim=128, heads=4, layers=4, dropout=0.2, max_len=512):
         super().__init__()
+        self.positional_encoding = PositionalEncoding(embed_dim, max_len)
         enc_layer = nn.TransformerEncoderLayer(
             d_model=embed_dim,
             nhead=heads,
@@ -92,10 +109,14 @@ class SleepTransformer(nn.Module):
         self.encoder = nn.TransformerEncoder(enc_layer, layers)
         self.cls = nn.Linear(embed_dim, NUM_CLASSES)
 
-    def forward(self, x):
-        h = self.encoder(x)
-        center = h[:, h.size(1) // 2]
-        return self.cls(center)
+    def forward(self, x, padding_mask=None):
+        # Add positional encoding BEFORE transformer
+        x = self.positional_encoding(x)
+        h = self.encoder(
+            x,
+            src_key_padding_mask=padding_mask
+        )
+        return self.cls(h)
 
 
 class SleepStagingModel(nn.Module):
@@ -104,6 +125,7 @@ class SleepStagingModel(nn.Module):
         self.encoder = EpochEncoder()
         self.context = SleepTransformer()
 
-    def forward(self, x):
+    def forward(self, x, padding_mask=None):
         feats = self.encoder(x)
-        return self.context(feats)
+        return self.context(feats, padding_mask)
+

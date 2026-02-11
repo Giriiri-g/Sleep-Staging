@@ -17,8 +17,8 @@ class FocalLoss(nn.Module):
         self.gamma = gamma
 
     def forward(self, logits, targets):
-        # logits: [B, C]
-        # targets: [B]
+        # logits: [B*T, C]
+        # targets: [B*T]
 
         ce = F.cross_entropy(logits, targets, reduction="none")
         pt = torch.exp(-ce)
