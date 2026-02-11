@@ -38,7 +38,7 @@ def compute_metrics(y_true, y_pred, y_prob):
         "kappa": cohen_kappa_score(y_true, y_pred),
         "specificity": compute_specificity(y_true, y_pred)
     }
-
+    print("[METRICS] Computed basic metrics (accuracy, F1, precision, recall, kappa, specificity).")
     try:
         metrics["roc_auc"] = roc_auc_score(
             y_true, y_prob, multi_class="ovr", average="weighted"

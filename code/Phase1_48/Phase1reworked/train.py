@@ -15,11 +15,17 @@ def logger(msg):
 
 
 def evaluate(model, loader, device):
+    print("[EVAL] Starting evaluation...")
     model.eval()
     y_true, y_pred, y_prob = [], [], []
+    batch_count = 0
+
 
     with torch.no_grad():
         for x, y, padding_mask in loader:
+            batch_count += 1
+            if batch_count % 10 == 0:
+                print(f"[EVAL] Processed {batch_count}/{len(loader)} batches")
             x = x.to(device)
             y = y.to(device)
             padding_mask = padding_mask.to(device)
@@ -33,6 +39,10 @@ def evaluate(model, loader, device):
             y_true.extend(y[valid].cpu().numpy())
             y_pred.extend(preds[valid].cpu().numpy())
             y_prob.extend(probs[valid].cpu().numpy())
+    print(f"[EVAL] Finished forward passes.")
+    print(f"[EVAL] Total valid samples: {len(y_true)}")
+
+    print("[EVAL] Computing metrics...")
 
     return compute_metrics(
         np.array(y_true),
