@@ -25,33 +25,32 @@ from cfs_dataset import create_binary_dataloaders
 # ============================================================
 # CONFIG
 # ============================================================
-DATA_PATH = "csv-docs/cfs_visit5_selected.csv"
-DISEASE_COLUMN = "bpdiag"
+DATA_PATH = "C:\Sleep-Staging\csv-docs\cfs_visit5_selected.csv"
+DISEASE_COLUMN = "diadiag"
 
-BATCH_SIZE = 16
-EPOCHS = 150
+BATCH_SIZE = 64
+EPOCHS = 100
 LR = 1e-3
-PATIENCE = 100
+PATIENCE = 30
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-SAVE_PREFIX = "bpdiag_post_enas"
+SAVE_PREFIX = "diadiag_post_enas"
 
 # ============================================================
 # BEST DAG (FROM ENAS)
 # ============================================================
-BEST_DAG = BEST_DAG = {
-    0: {"edges": [0, 0], "ops": ["avg_pool", "sep_conv_7"]},
-    1: {"edges": [1, 2], "ops": ["max_pool", "conv_3"]},
-    2: {"edges": [1, 2], "ops": ["max_pool", "sep_conv_5"]},
-    3: {"edges": [1, 3], "ops": ["dil_conv_3", "avg_pool"]},
-    4: {"edges": [3, 1], "ops": ["dil_conv_3", "avg_pool"]},
-    5: {"edges": [3, 0], "ops": ["sep_conv_3", "conv_3"]},
-    6: {"edges": [7, 7], "ops": ["dil_conv_5", "sep_conv_7"]},
-    7: {"edges": [5, 2], "ops": ["conv_5", "identity"]},
-    8: {"edges": [6, 3], "ops": ["avg_pool", "sep_conv_3"]},
-    9: {"edges": [10, 10], "ops": ["sep_conv_7", "max_pool"]},
+BEST_DAG = {
+    0: {"edges": [1, 0], "ops": ["conv_5", "sep_conv_3"]},
+    1: {"edges": [1, 2], "ops": ["avg_pool", "dil_conv_3"]},
+    2: {"edges": [1, 1], "ops": ["sep_conv_7", "avg_pool"]},
+    3: {"edges": [3, 2], "ops": ["sep_conv_3", "sep_conv_5"]},
+    4: {"edges": [1, 4], "ops": ["sep_conv_3", "sep_conv_5"]},
+    5: {"edges": [6, 1], "ops": ["sep_conv_5", "avg_pool"]},
+    6: {"edges": [2, 3], "ops": ["dil_conv_5", "sep_conv_3"]},
+    7: {"edges": [1, 1], "ops": ["dil_conv_5", "sep_conv_7"]},
+    8: {"edges": [5, 7], "ops": ["sep_conv_5", "avg_pool"]},
+    9: {"edges": [7, 5], "ops": ["max_pool", "avg_pool"]},
 }
-
 
 
 OP_NAME_TO_IDX = {name: i for i, name in enumerate(OP_NAMES)}

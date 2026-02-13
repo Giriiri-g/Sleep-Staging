@@ -257,7 +257,7 @@ def main():
                        help="Focal loss gamma parameter")
     
     # Shared model optimization
-    parser.add_argument("--shared_optimizer", type=str, default="sgd",
+    parser.add_argument("--shared_optimizer", type=str, default="adam",
                        choices=["sgd", "adam"],
                        help="Optimizer for shared model")
     parser.add_argument("--shared_lr", type=float, default=0.01,
