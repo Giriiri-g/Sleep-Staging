@@ -88,11 +88,14 @@ FEATURES = [
     "remlaiip5",
 
     # Respiratory / apnea physiology (PSG-derived)
-    "oahi35",
-    "oahi45",
-    "ahiov505",
-    "apnea35",
-    "respevpr5"
+    # "oahi35",
+    # "oahi45",
+    # "ahiov505",
+    # "apnea35",
+    # "respevpr5"
+    'wtlb5',
+    'bpmmin5',
+    'avgsleepboutswd5'
 ]
 
 # Binary targets (modeled independently, clinically correct)

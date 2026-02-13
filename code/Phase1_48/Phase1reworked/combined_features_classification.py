@@ -43,11 +43,15 @@ FEATURE_COLUMNS = [
     "remlaiip5",
 
     # Respiratory / apnea physiology (PSG-derived)
-    "oahi35",
-    "oahi45",
-    "ahiov505",
-    "apnea35",
-    "respevpr5"
+    # "oahi35", # cannot calculate from signals
+    # "oahi45",
+    # "ahiov505",
+    # "apnea35",
+    # "respevpr5",
+    'wtlb5',
+    'bpmmin5',
+    'avgsleepboutswd5'
+
 ]
 
 

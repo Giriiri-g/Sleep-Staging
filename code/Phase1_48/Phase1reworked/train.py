@@ -64,8 +64,9 @@ def sleep_collate_fn(batch):
     max_len = max(lengths)
     batch_size = len(batch)
 
+    feature_dim = batch[0][0].shape[1]
     # Allocate padded tensors
-    x_padded = torch.zeros(batch_size, max_len, 3000)
+    x_padded = torch.zeros(batch_size, max_len, feature_dim)
     y_padded = torch.full((batch_size, max_len), -100)  # ignore index
     padding_mask = torch.ones(batch_size, max_len, dtype=torch.bool)
 
@@ -83,7 +84,7 @@ def train_model(train_dataset, val_dataset, device):
 
     train_loader = DataLoader(
         train_dataset,
-        batch_size=4,
+        batch_size=8,
         shuffle=True,
         num_workers=2,
         collate_fn=sleep_collate_fn,
@@ -93,7 +94,7 @@ def train_model(train_dataset, val_dataset, device):
 
     val_loader = DataLoader(
         val_dataset,
-        batch_size=4,
+        batch_size=8,
         shuffle=False,
         num_workers=2,
         collate_fn=sleep_collate_fn,
@@ -199,8 +200,8 @@ def main():
     indices = list(range(num_files))
     train_indices, val_indices = train_test_split(indices, test_size=0.2, random_state=42)
 
-    train_dataset = SleepEDFSequenceDataset("processed_sleepedf/index.csv", file_indices=train_indices)
-    val_dataset = SleepEDFSequenceDataset("processed_sleepedf/index.csv", file_indices=val_indices)
+    train_dataset = SleepEDFSequenceDataset("processed_sleepedf/index.csv", file_indices=train_indices, feature='spectral')
+    val_dataset = SleepEDFSequenceDataset("processed_sleepedf/index.csv", file_indices=val_indices, feature='spectral')
 
     print(f"Train files: {len(train_indices)}, Val files: {len(val_indices)}")
 

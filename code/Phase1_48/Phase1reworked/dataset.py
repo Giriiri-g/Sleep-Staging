@@ -26,6 +26,7 @@ class SleepEDFSequenceDataset(Dataset):
     def __init__(
         self,
         csv_path,
+        feature='temporal',
         file_indices=None,
         window_size=256,
         overlap=64
@@ -38,7 +39,7 @@ class SleepEDFSequenceDataset(Dataset):
 
         self.window_size = window_size
         self.stride = window_size - overlap
-
+        self.path = 'tensor_path' if feature == 'temporal' else 'spectral'
         # Build index: (row_idx, start_epoch)
         self.index = []
 
@@ -59,7 +60,7 @@ class SleepEDFSequenceDataset(Dataset):
         row = self.df.iloc[row_idx]
 
         # Lazy load tensor
-        x = torch.load(row["tensor_path"])  # [T_full, 3000]
+        x = torch.load(row[self.path])  # [T_full, 3000]
         stages = row["stage_sequence"].split(" ")
 
         end = start + self.window_size
