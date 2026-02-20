@@ -54,29 +54,49 @@ def evaluate(model, loader, device):
 
 
 def sleep_collate_fn(batch):
-    """
-    batch: list of (x, y)
-      x: [T_i, 3000]
-      y: [T_i]
-    """
 
-    lengths = [x.shape[0] for x, _ in batch]
+    lengths = [sample[0][0].shape[0] if isinstance(sample[0], tuple)
+               else sample[0].shape[0] for sample in batch]
+
     max_len = max(lengths)
     batch_size = len(batch)
 
-    feature_dim = batch[0][0].shape[1]
-    # Allocate padded tensors
-    x_padded = torch.zeros(batch_size, max_len, feature_dim)
-    y_padded = torch.full((batch_size, max_len), -100)  # ignore index
+    is_fusion = isinstance(batch[0][0], tuple)
+
+    if is_fusion:
+        temporal_dim = batch[0][0][0].shape[1]
+        spectral_dim = batch[0][0][1].shape[1]
+
+        x_temp = torch.zeros(batch_size, max_len, temporal_dim)
+        x_spec = torch.zeros(batch_size, max_len, spectral_dim)
+    else:
+        feature_dim = batch[0][0].shape[1]
+        x_padded = torch.zeros(batch_size, max_len, feature_dim)
+
+    y_padded = torch.full((batch_size, max_len), -100)
     padding_mask = torch.ones(batch_size, max_len, dtype=torch.bool)
 
-    for i, (x, y) in enumerate(batch):
-        T = x.shape[0]
-        x_padded[i, :T] = x
-        y_padded[i, :T] = y
-        padding_mask[i, :T] = False  # False = valid token
+    for i, sample in enumerate(batch):
 
-    return x_padded, y_padded, padding_mask
+        if is_fusion:
+            (x_t, x_s), y = sample
+            T = x_t.shape[0]
+
+            x_temp[i, :T] = x_t
+            x_spec[i, :T] = x_s
+        else:
+            x, y = sample
+            T = x.shape[0]
+            x_padded[i, :T] = x
+
+        y_padded[i, :T] = y
+        padding_mask[i, :T] = False
+
+    if is_fusion:
+        return (x_temp, x_spec), y_padded, padding_mask
+    else:
+        return x_padded, y_padded, padding_mask
+
 
 
 def train_model(train_dataset, val_dataset, device):
@@ -89,7 +109,8 @@ def train_model(train_dataset, val_dataset, device):
         num_workers=2,
         collate_fn=sleep_collate_fn,
         pin_memory=True,
-        persistent_workers=True
+        persistent_workers=True,
+        feature='fusion'
     )
 
     val_loader = DataLoader(
@@ -99,7 +120,8 @@ def train_model(train_dataset, val_dataset, device):
         num_workers=2,
         collate_fn=sleep_collate_fn,
         pin_memory=True,
-        persistent_workers=True
+        persistent_workers=True,
+        feature='fusion'
     )
 
 

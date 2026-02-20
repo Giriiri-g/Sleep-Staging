@@ -70,6 +70,39 @@ class EpochEncoder(nn.Module):
         return result
 
 
+class ChannelAttentionFusion(nn.Module):
+    def __init__(self, embed_dim=128, spectral_dim=34):
+        super().__init__()
+
+        self.spectral_proj = nn.Linear(spectral_dim, embed_dim)
+
+        self.attn = nn.Sequential(
+            nn.Linear(embed_dim * 2, embed_dim // 2),
+            nn.ReLU(),
+            nn.Linear(embed_dim // 2, 2),
+            nn.Softmax(dim=-1)
+        )
+
+    def forward(self, temporal_feat, spectral_feat):
+        """
+        temporal_feat : [B, T, 128]
+        spectral_feat : [B, T, 34]
+        """
+
+        spectral_feat = self.spectral_proj(spectral_feat)
+
+        combined = torch.cat([temporal_feat, spectral_feat], dim=-1)
+
+        weights = self.attn(combined)  # [B, T, 2]
+
+        wt_t = weights[..., 0].unsqueeze(-1)
+        wt_s = weights[..., 1].unsqueeze(-1)
+
+        fused = wt_t * temporal_feat + wt_s * spectral_feat
+
+        return fused
+
+
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, max_len=512):
         super().__init__()
@@ -122,10 +155,24 @@ class SleepTransformer(nn.Module):
 class SleepStagingModel(nn.Module):
     def __init__(self):
         super().__init__()
-        self.encoder = EpochEncoder()
-        self.context = SleepTransformer()
+
+        self.encoder = EpochEncoder()              # temporal
+        self.fusion = ChannelAttentionFusion()    # modality attention
+        self.context = SleepTransformer()         # unchanged
 
     def forward(self, x, padding_mask=None):
-        feats = self.encoder(x)
-        return self.context(feats, padding_mask)
+
+        if isinstance(x, tuple):
+            x_temporal, x_spectral = x
+
+            temporal_feat = self.encoder(x_temporal)      # [B, T, 128]
+            fused_feat = self.fusion(temporal_feat, x_spectral)
+
+            return self.context(fused_feat, padding_mask)
+
+        else:
+            # fallback (pure temporal)
+            feats = self.encoder(x)
+            return self.context(feats, padding_mask)
+
 

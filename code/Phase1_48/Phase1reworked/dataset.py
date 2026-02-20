@@ -39,7 +39,17 @@ class SleepEDFSequenceDataset(Dataset):
 
         self.window_size = window_size
         self.stride = window_size - overlap
-        self.path = 'tensor_path' if feature == 'temporal' else 'spectral'
+        self.feature = feature
+
+        if feature == 'temporal':
+            self.path = 'tensor_path'
+        elif feature == 'spectral':
+            self.path = 'spectral'
+        elif feature == 'fusion':
+            self.temporal_path = 'tensor_path'
+            self.spectral_path = 'spectral'
+        else:
+            raise ValueError("feature must be temporal | spectral | fusion")
         # Build index: (row_idx, start_epoch)
         self.index = []
 
@@ -59,15 +69,24 @@ class SleepEDFSequenceDataset(Dataset):
         row_idx, start = self.index[idx]
         row = self.df.iloc[row_idx]
 
-        # Lazy load tensor
-        x = torch.load(row[self.path])  # [T_full, 3000]
+        end = start + self.window_size
         stages = row["stage_sequence"].split(" ")
 
-        end = start + self.window_size
-
-        x = x[start:end]
         y = torch.tensor(
             [STAGE_TO_IDX[s] for s in stages[start:end]],
             dtype=torch.long
         )
-        return x.float(), y
+
+        if self.feature == 'fusion':
+            x_temporal = torch.load(row[self.temporal_path])
+            x_spectral = torch.load(row[self.spectral_path])
+
+            x_temporal = x_temporal[start:end]
+            x_spectral = x_spectral[start:end]
+
+            return (x_temporal.float(), x_spectral.float()), y
+
+        else:
+            x = torch.load(row[self.path])
+            x = x[start:end]
+            return x.float(), y

@@ -1,9 +1,11 @@
 import pandas as pd
+import torch
 
-df = pd.read_csv("processed_sleepedf/index.csv")
+df = pd.read_csv("C:/PS/Sleep-Staging/processed_sleepedf/index.csv")
 
-for idx, row in df.iterrows():
-    tensor_path = row["tensor_path"]
-    df.at[idx, "tensor_path"] = tensor_path.replace('processed_sleepedf\\tensors\\', 'home/geethalekshmy/GirishS/tensors/tensors')
+epochs = []
+for i in range(len(df)):
+     epochs.append(torch.load(df.loc[i]['spectral']).shape[0])
 
-df.to_csv("processed_sleepedf/index.csv", index=False)
+mean = sum(epochs) / len(epochs)
+print(mean)
