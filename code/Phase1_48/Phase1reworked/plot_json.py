@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # Your log data (50 epochs)
-with open(r"C:\PS\Sleep-Staging\results\temporal spectral fusion\concat\training_metrics_fusion.jsonl", 'r') as f:
+with open(r"C:\\Users\\Hari\\Documents\\Sleep-Staging\\results\\temporal spectral fusion\\Gated\\training_metrics_fusion.jsonl", 'r') as f:
     log_data = f.read()
 logs = [json.loads(line) for line in log_data.strip().split('\n') if line.strip()]
 n_epochs = len(logs)
