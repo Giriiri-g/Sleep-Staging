@@ -11,7 +11,7 @@ Usage:
         --out_dir  /data/mesa/features
 
 Dependencies:
-    pip install mne pyedflib scipy numpy pandas
+    pip install edfio scipy numpy pandas
 
 Fixes applied vs original:
     1. load_edf        – Per-channel native fs map replaces global raw.info["sfreq"].
@@ -33,6 +33,9 @@ Fixes applied vs original:
     6. _moving_rms     – Leading pad used rms[0] (first valid window value) instead of
                          zero, biasing apnea detection at recording start.  Now pads
                          with zeros.
+    7. load_edf        – Replaced MNE with edfio (lazy_load_data=True) to avoid
+                         std::bad_alloc / 5 GiB allocation on large MESA EDF files.
+                         edfio loads each signal on access, no C compilation required.
 """
 
 import argparse
@@ -43,10 +46,10 @@ from math import log2
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-import mne
 import numpy as np
 import pandas as pd
 import scipy.signal as ssignal
+from edfio import read_edf
 from scipy.integrate import trapezoid
 
 warnings.filterwarnings("ignore")
@@ -110,56 +113,58 @@ STAGE_CONCEPT_MAP: Dict[str, str] = {
 # ─────────────────────────────────────────────────────────────────────────────
 # 1. EDF LOADING
 # ─────────────────────────────────────────────────────────────────────────────
+def _resolve_channel_key(ch_name: str) -> Optional[str]:
+    """Resolve EDF channel label to internal key. FIX #5: case-insensitive fallback."""
+    key = CHANNEL_ALIASES.get(ch_name)
+    if key is not None:
+        return key
+    ch_stripped = ch_name.strip()
+    return next(
+        (v for k, v in CHANNEL_ALIASES.items() if k.lower() == ch_stripped.lower()),
+        None,
+    )
+
+
 def load_edf(edf_path: Path) -> Dict[str, Tuple[np.ndarray, float]]:
     """
-    Load EDF via MNE.  Returns {internal_key: (signal_array, fs)}.
+    Load EDF via edfio with lazy_load_data=True for memory efficiency.
+    Returns {internal_key: (signal_array, fs)}.
 
-    FIX #1: MNE resamples every channel to the global sfreq (max rate in the
-    EDF, typically 256 Hz) when indexed.  We resample each channel to its true
-    native rate using CHANNEL_NATIVE_FS, then further downsample high-rate
-    channels to FS_TARGET (100 Hz).  Previously all channels including SpO2
-    were left at 100 Hz, inflating T90/T88/ODI by ~100×.
+    Memory fix: MNE/pyedflib load the full file (~5 GiB for 27 ch × 25M samples).
+    edfio with lazy_load_data=True loads each signal only when accessed, keeping
+    peak memory to one channel at a time (~200 MB).
 
-    FIX #5: Case-insensitive alias lookup now actually lowercases both sides.
+    FIX #1: Each channel uses its native EDF sample rate; high-rate channels
+    are downsampled to FS_TARGET (100 Hz), low-rate/SpO2 stay at native.
+    FIX #5: Case-insensitive alias lookup.
     """
-    raw = mne.io.read_raw_edf(str(edf_path), preload=True, verbose=False)
-    fs_mne = float(raw.info["sfreq"])   # unified rate MNE used
     channels: Dict[str, Tuple[np.ndarray, float]] = {}
 
-    for ch_name in raw.ch_names:
-        # Exact match first
-        key = CHANNEL_ALIASES.get(ch_name)
-        # FIX #5: genuine case-insensitive fallback (original only stripped whitespace)
-        if key is None:
-            ch_stripped = ch_name.strip()
-            key = next(
-                (v for k, v in CHANNEL_ALIASES.items()
-                 if k.lower() == ch_stripped.lower()),
-                None,
-            )
-        if key is None:
-            continue  # skip unknown channels
+    edf = read_edf(str(edf_path), lazy_load_data=True)
 
-        data, _ = raw[ch_name]
-        data = data.squeeze()
+    for sig in edf.signals:
+        ch_name = sig.label.strip()
+        key = _resolve_channel_key(ch_name)
+        if key is None:
+            continue
 
-        # FIX #1 (part B): determine the correct target fs for this channel
+        # Access .data triggers load for this signal only (lazy_load_data)
+        data = np.asarray(sig.data, dtype=np.float64).copy()
+        fs_edf = float(sig.sampling_frequency)
+
+        # FIX #1: target fs from CHANNEL_NATIVE_FS
         fs_native = CHANNEL_NATIVE_FS.get(key, float(FS_HIGH))
         if fs_native >= 200:
-            # High-rate channel → downsample to FS_TARGET (100 Hz)
             target_fs = float(FS_TARGET)
         else:
-            # Low-rate or 1-Hz channel → restore to native rate
             target_fs = fs_native
 
-        # Resample from MNE's unified rate to our target
-        if abs(fs_mne - target_fs) > 0.5:
-            data = _downsample(data, int(round(fs_mne)), int(round(target_fs)))
+        if abs(fs_edf - target_fs) > 0.5:
+            data = _downsample(data, int(round(fs_edf)), int(round(target_fs)))
 
         channels[key] = (data, target_fs)
         log.debug(
-            f"  Loaded {ch_name!r} → {key!r}  "
-            f"fs_mne={fs_mne:.0f} → fs={target_fs:.0f} Hz  len={len(data)}"
+            f"  Loaded {ch_name!r} → {key!r}  fs={fs_edf:.0f} → {target_fs:.0f} Hz  len={len(data)}"
         )
 
     return channels
