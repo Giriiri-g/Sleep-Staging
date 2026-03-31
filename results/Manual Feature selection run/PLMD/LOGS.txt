@@ -1,0 +1,92 @@
+▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+  🎯  RLS (RLS)
+▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+
+[1/6] Preprocessing...
+  Features after preprocessing: 126
+  Samples: 2056  |  Pos: 92  (4.5%)
+
+[2/6] Correlation pruning...
+  Correlation pruning: 126 → 106 features (dropped 20)
+
+[3/6] Mutual information filter...
+  MI filter (>30th pct, cutoff=0.00000): 106 → 106 features
+  Top 10 by MI:
+TIB_sec                       0.009051
+AI                            0.008379
+REM_Periods                   0.005868
+W_Duration_sec                0.005792
+REM_Phasic_EMG_Rate_per_hr    0.005478
+EEG1_W_Delta_Power_mean       0.005065
+REM_Tonic_EMG_Pct             0.004959
+R_Proportion                  0.004807
+N1_Duration_sec               0.004692
+N2_Duration_sec               0.004646
+  Final feature count: 106
+
+[5/6] Classification Reports — RLS
+
+  ▸ LogisticReg
+              precision    recall  f1-score   support
+
+    Negative     0.9600    0.7919    0.8679       394
+    Positive     0.0575    0.2778    0.0952        18
+
+    accuracy                         0.7694       412
+   macro avg     0.5087    0.5348    0.4816       412
+weighted avg     0.9206    0.7694    0.8341       412
+
+
+  ▸ RandomForest
+              precision    recall  f1-score   support
+
+    Negative     0.9605    0.8629    0.9091       394
+    Positive     0.0690    0.2222    0.1053        18
+
+    accuracy                         0.8350       412
+   macro avg     0.5147    0.5426    0.5072       412
+weighted avg     0.9215    0.8350    0.8740       412
+
+
+  ▸ XGBoost
+              precision    recall  f1-score   support
+
+    Negative     0.9670    0.8934    0.9288       394
+    Positive     0.1250    0.3333    0.1818        18
+
+    accuracy                         0.8689       412
+   macro avg     0.5460    0.6134    0.5553       412
+weighted avg     0.9302    0.8689    0.8961       412
+
+
+  ▸ LinearSVM
+              precision    recall  f1-score   support
+
+    Negative     0.9557    0.9848    0.9700       394
+    Positive     0.0000    0.0000    0.0000        18
+
+    accuracy                         0.9417       412
+   macro avg     0.4778    0.4924    0.4850       412
+weighted avg     0.9139    0.9417    0.9276       412
+
+
+  ▸ MLP_sklearn
+              precision    recall  f1-score   support
+
+    Negative     0.9550    0.5381    0.6883       394
+    Positive     0.0421    0.4444    0.0769        18
+
+    accuracy                         0.5340       412
+   macro avg     0.4985    0.4913    0.3826       412
+weighted avg     0.9151    0.5340    0.6616       412
+
+
+  ▸ MLP_PyTorch
+              precision    recall  f1-score   support
+
+    Negative     0.9603    0.9213    0.9404       394
+    Positive     0.0882    0.1667    0.1154        18
+
+    accuracy                         0.8883       412
+   macro avg     0.5243    0.5440    0.5279       412
+weighted avg     0.9222    0.8883    0.9044       412

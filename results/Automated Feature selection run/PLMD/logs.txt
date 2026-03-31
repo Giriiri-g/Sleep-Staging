@@ -1,0 +1,84 @@
+ Train=1620  Test=405  pos_rate=0.046  pos_weight=20.9
+
+[3/6] Training sklearn models...
+  ► LogisticReg... 
+/usr/local/lib/python3.12/dist-packages/sklearn/linear_model/_sag.py:348: ConvergenceWarning: The max_iter was reached which means the coef_ did not converge
+  warnings.warn(
+F1=0.097  AUROC=0.551  AP=0.060  (66s)
+  ► RandomForest... F1=0.115  AUROC=0.686  AP=0.099  (4s)
+  ► XGBoost... F1=0.109  AUROC=0.698  AP=0.093  (5s)
+  ► LinearSVM... F1=0.078  AUROC=0.487  AP=0.053  (3s)
+  ► MLP_sklearn... F1=0.000  AUROC=0.585  AP=0.064  (1s)
+
+  ► MLP_PyTorch (60 epochs)...
+    Epoch [20/60]  Train loss=0.0792 acc=0.9796  Val loss=4.0587 acc=0.8815
+    Epoch [40/60]  Train loss=0.0146 acc=0.9963  Val loss=5.6413 acc=0.9136
+    Epoch [60/60]  Train loss=0.0522 acc=0.9963  Val loss=5.6518 acc=0.9111
+  F1=0.155  AUROC=0.631  AP=0.093  (5s)
+
+[4/6] Classification Reports — RLS
+
+  ▸ LogisticReg
+              precision    recall  f1-score   support
+
+    Negative     0.9594    0.7933    0.8685       387
+    Positive     0.0588    0.2778    0.0971        18
+
+    accuracy                         0.7704       405
+   macro avg     0.5091    0.5355    0.4828       405
+weighted avg     0.9194    0.7704    0.8342       405
+
+
+  ▸ RandomForest
+              precision    recall  f1-score   support
+
+    Negative     0.9698    0.5814    0.7270       387
+    Positive     0.0636    0.6111    0.1152        18
+
+    accuracy                         0.5827       405
+   macro avg     0.5167    0.5963    0.4211       405
+weighted avg     0.9296    0.5827    0.6998       405
+
+
+  ▸ XGBoost
+              precision    recall  f1-score   support
+
+    Negative     0.9592    0.9121    0.9351       387
+    Positive     0.0811    0.1667    0.1091        18
+
+    accuracy                         0.8790       405
+   macro avg     0.5202    0.5394    0.5221       405
+weighted avg     0.9202    0.8790    0.8984       405
+
+
+  ▸ LinearSVM
+              precision    recall  f1-score   support
+
+    Negative     0.9549    0.6021    0.7385       387
+    Positive     0.0435    0.3889    0.0782        18
+
+    accuracy                         0.5926       405
+   macro avg     0.4992    0.4955    0.4084       405
+weighted avg     0.9144    0.5926    0.7092       405
+
+
+  ▸ MLP_sklearn
+              precision    recall  f1-score   support
+
+    Negative     0.9544    0.9742    0.9642       387
+    Positive     0.0000    0.0000    0.0000        18
+
+    accuracy                         0.9309       405
+   macro avg     0.4772    0.4871    0.4821       405
+weighted avg     0.9120    0.9309    0.9213       405
+
+
+  ▸ MLP_PyTorch
+              precision    recall  f1-score   support
+
+    Negative     0.9688    0.8010    0.8769       387
+    Positive     0.0941    0.4444    0.1553        18
+
+    accuracy                         0.7852       405
+   macro avg     0.5314    0.6227    0.5161       405
+weighted avg     0.9299    0.7852    0.8449       405

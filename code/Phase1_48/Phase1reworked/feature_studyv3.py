@@ -207,6 +207,8 @@ def run_pipeline():
         X_final = X_scaled[:, [feature_names.index(f) for f in stable_features]]
         f1, pr_auc, threshold = train_and_evaluate(X_final, y)
 
+        data = pd.DataFrame({ **X_final, "deppresion": y })
+        data.to_csv(f"{target}_final_data.csv", index=False)
         print(f"\n✅ FINAL RESULT ({target})")
         print(f"Stable features: {len(stable_features)}")
         print(f"Best F1: {f1:.4f}")

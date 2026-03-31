@@ -1,0 +1,82 @@
+
+  Train=1629  Test=408  pos_rate=0.077  pos_weight=12.0
+
+[3/6] Training sklearn models...
+  ► LogisticReg... F1=0.760  AUROC=0.889  AP=0.753  (9s)
+  ► RandomForest... F1=0.755  AUROC=0.880  AP=0.773  (4s)
+  ► XGBoost... F1=0.784  AUROC=0.883  AP=0.765  (4s)
+  ► LinearSVM... F1=0.708  AUROC=0.918  AP=0.755  (2s)
+  ► MLP_sklearn... F1=0.164  AUROC=0.643  AP=0.249  (1s)
+
+  ► MLP_PyTorch (60 epochs)...
+    Epoch [20/60]  Train loss=0.0287 acc=0.9957  Val loss=1.4226 acc=0.9510
+    Epoch [40/60]  Train loss=0.0101 acc=0.9969  Val loss=2.1412 acc=0.9608
+    Epoch [60/60]  Train loss=0.0107 acc=0.9988  Val loss=2.0096 acc=0.9681
+  F1=0.764  AUROC=0.900  AP=0.755  (5s)
+
+[4/6] Classification Reports — Apnea
+
+  ▸ LogisticReg
+              precision    recall  f1-score   support
+
+    Negative     0.9692    1.0000    0.9843       377
+    Positive     1.0000    0.6129    0.7600        31
+
+    accuracy                         0.9706       408
+   macro avg     0.9846    0.8065    0.8722       408
+weighted avg     0.9715    0.9706    0.9673       408
+
+
+  ▸ RandomForest
+              precision    recall  f1-score   support
+
+    Negative     0.9715    0.9947    0.9830       377
+    Positive     0.9091    0.6452    0.7547        31
+
+    accuracy                         0.9681       408
+   macro avg     0.9403    0.8199    0.8688       408
+weighted avg     0.9668    0.9681    0.9656       408
+
+
+  ▸ XGBoost
+              precision    recall  f1-score   support
+
+    Negative     0.9716    1.0000    0.9856       377
+    Positive     1.0000    0.6452    0.7843        31
+
+    accuracy                         0.9730       408
+   macro avg     0.9858    0.8226    0.8850       408
+weighted avg     0.9738    0.9730    0.9703       408
+
+
+  ▸ LinearSVM
+              precision    recall  f1-score   support
+
+    Negative     0.9642    1.0000    0.9818       377
+    Positive     1.0000    0.5484    0.7083        31
+
+    accuracy                         0.9657       408
+   macro avg     0.9821    0.7742    0.8451       408
+weighted avg     0.9669    0.9657    0.9610       408
+
+
+  ▸ MLP_sklearn
+              precision    recall  f1-score   support
+
+    Negative     0.9312    0.9337    0.9325       377
+    Positive     0.1667    0.1613    0.1639        31
+
+    accuracy                         0.8750       408
+   macro avg     0.5489    0.5475    0.5482       408
+weighted avg     0.8731    0.8750    0.8741       408
+
+
+  ▸ MLP_PyTorch
+              precision    recall  f1-score   support
+
+    Negative     0.9740    0.9920    0.9829       377
+    Positive     0.8750    0.6774    0.7636        31
+
+    accuracy                         0.9681       408
+   macro avg     0.9245    0.8347    0.8733       408
+weighted avg     0.9664    0.9681    0.9663       408

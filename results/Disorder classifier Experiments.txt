@@ -1,0 +1,42 @@
+Disorder classifier - initial experiment
+- used 12 clinical features including AHI, ODI, Arousal Index, Sleep stage ratios, Sleep efficiency, WASO, PLMI
+- feature vector encoded using RNN from the sleep stage sequence is also fed to the classifier
+- concatenate both feature vectors and provide the fused embedding to a simple MLP classifier head
+- classifier head is set for multi-label binary classification task
+- RESULTS in ROC-AUC:
+ = Apnea : 0.614
+ = Insomnia : 0.568
+ = RLS : 0.54
+
+Experiment #2 - Betterment of feature representation and reducing chance of feature explosion
+- feature set increased from 12 features to 23
+- most of them are macro sleep architecture derivable from sleep staging
+- such as REM latency, WASO, stage durations, transition rates, percentages, entropy etc.
+- explicit sleep stage sequence embedding has been avoided, as features calculatable from them are used instead.
+- instead of simple MLP classifier head, various Machine Learning models have been studied as they are most suitable and effective for this task such as SVM, RF, LR, XGBoost, LGB
+- A rise in performance have been noted:
+ = Apnea: RF : 0.757
+ = Insomnia : LR : 0.629
+ = RLS : SVM RBF : 0.622
+
+
+Experiment #3 - Betterment of Feature Selection
+- process includes 7 steps, from the 600+ features:
+ 1. Heavily missing columns are dropped, threshold=80%
+ 2. Constant columns (low variance) dropped
+ 3. Mutual Information classifier
+ 4. Correlation pruning
+ 5. XGB importance
+ 6. L1 Logistical Regression selection
+ 7. Bootstrap k fold stability selection
+- resulted in eliminating from 600+ features to 10-20 features
+- main features include AHI, BMI, WASO, Weight, BP min in night, Central Apnea Index etc
+- Performance increased for Apnea from 0.757 to 0.7822
+
+
+Experiment #4 larger feature set from more PSG signals
+- instead of only using macro sleep architecture features which are derivable from sleep stage sequence, a bigger set of features able to better represent health condition according to the disorder has been come up with.
+- Main channels like EEG, ECG, EOG, EMG, SpO2, Nasal Pressure, Abdominal Effort, Thoracic Effort are used.
+- Most commonly used and informative clinical features from these channels have been extracted.
+- the feature set from 23 have been increased to 132
+- better models such as Ensemble models have been experimented

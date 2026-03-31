@@ -1,0 +1,92 @@
+▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+  🎯  APNEA (apnea)
+▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+
+[1/6] Preprocessing...
+  Features after preprocessing: 126
+  Samples: 2056  |  Pos: 156  (7.6%)
+
+[2/6] Correlation pruning...
+  Correlation pruning: 126 → 106 features (dropped 20)
+
+[3/6] Mutual information filter...
+  MI filter (>30th pct, cutoff=0.00000): 106 → 106 features
+  Top 10 by MI:
+IMI_Std_sec                 0.013486
+T90_sec                     0.012864
+EEG1_N3_Theta_Power_std     0.012197
+Apnea_N_Total               0.011141
+W_Duration_sec              0.010648
+EEG1_N3_Alpha_Power_std     0.009688
+W_Proportion                0.008769
+EEG1_W_Beta_Power_std       0.008532
+WASO_sec                    0.008396
+EEG1_N1_Delta_Power_mean    0.008232
+  Final feature count: 106
+
+[5/6] Classification Reports — Apnea
+
+  ▸ LogisticReg
+              precision    recall  f1-score   support
+
+    Negative     0.9370    0.3123    0.4685       381
+    Positive     0.0807    0.7419    0.1456        31
+
+    accuracy                         0.3447       412
+   macro avg     0.5089    0.5271    0.3070       412
+weighted avg     0.8726    0.3447    0.4442       412
+
+
+  ▸ RandomForest
+              precision    recall  f1-score   support
+
+    Negative     0.9611    0.4541    0.6168       381
+    Positive     0.1034    0.7742    0.1825        31
+
+    accuracy                         0.4782       412
+   macro avg     0.5323    0.6141    0.3996       412
+weighted avg     0.8966    0.4782    0.5841       412
+
+
+  ▸ XGBoost
+              precision    recall  f1-score   support
+
+    Negative     0.9583    0.3018    0.4591       381
+    Positive     0.0890    0.8387    0.1610        31
+
+    accuracy                         0.3422       412
+   macro avg     0.5237    0.5703    0.3100       412
+weighted avg     0.8929    0.3422    0.4367       412
+
+
+  ▸ LinearSVM
+              precision    recall  f1-score   support
+
+    Negative     1.0000    0.0210    0.0411       381
+    Positive     0.0767    1.0000    0.1425        31
+
+    accuracy                         0.0947       412
+   macro avg     0.5384    0.5105    0.0918       412
+weighted avg     0.9305    0.0947    0.0488       412
+
+
+  ▸ MLP_sklearn
+              precision    recall  f1-score   support
+
+    Negative     0.0000    0.0000    0.0000       381
+    Positive     0.0752    1.0000    0.1400        31
+
+    accuracy                         0.0752       412
+   macro avg     0.0376    0.5000    0.0700       412
+weighted avg     0.0057    0.0752    0.0105       412
+
+
+  ▸ MLP_PyTorch
+              precision    recall  f1-score   support
+
+    Negative     0.9388    0.4829    0.6378       381
+    Positive     0.0880    0.6129    0.1538        31
+
+    accuracy                         0.4927       412
+   macro avg     0.5134    0.5479    0.3958       412
+weighted avg     0.8748    0.4927    0.6014       412
