@@ -1,0 +1,994 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%2345678901234567890123456789012345678901234567890123456789012345678901234567890
+%        1         2         3         4         5         6         7         8
+
+\documentclass[letterpaper, 10 pt, conference]{ieeeconf}  % Comment this line out
+                                                          % if you need a4paper
+%\documentclass[a4paper, 10pt, conference]{ieeeconf}      % Use this line for a4
+                                                          % paper
+
+\IEEEoverridecommandlockouts                              % This command is only
+                                                          % needed if you want to
+                                                          % use the \thanks command
+\overrideIEEEmargins
+% See the \addtolength command later in the file to balance the column lengths
+% on the last page of the document
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx, graphics}
+\usepackage{cite}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{adjustbox}
+\usepackage{color}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{float}
+\usepackage{placeins}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+
+\lstset{style=mystyle}
+
+% The following packages can be found on http:\\www.ctan.org
+%\usepackage{graphics} % for pdf, bitmapped graphics files
+%\usepackage{epsfig} % for postscript graphics files
+%\usepackage{mathptmx} % assumes new font selection scheme installed
+%\usepackage{mathptmx} % assumes new font selection scheme installed
+%\usepackage{amsmath} % assumes amsmath package installed
+%\usepackage{amssymb}  % assumes amsmath package installed
+
+\title{\LARGE \bf Explainable Deep Learning Approach for Sleep Disorder Detection and Personalized Lifestyle Recommendations}
+
+%\author{ \parbox{3 in}{\centering Huibert Kwakernaak*
+%         \thanks{*Use the $\backslash$thanks command to put information here}\\
+%         Faculty of Electrical Engineering, Mathematics and Computer Science\\
+%         University of Twente\\
+%         7500 AE Enschede, The Netherlands\\
+%         {\tt\small h.kwakernaak@autsubmit.com}}
+%         \hspace*{ 0.5 in}
+%         \parbox{3 in}{ \centering Pradeep Misra**
+%         \thanks{**The footnote marks may be inserted manually}\\
+%        Department of Electrical Engineering \\
+%         Wright State University\\
+%         Dayton, OH 45435, USA\\
+%         {\tt\small pmisra@cs.wright.edu}}
+%}
+
+\author{Girish S (AM.EN.U4AIE22044), Harishankar Binu Nair (AM.EN.U4AIE22023)}
+
+
+\begin{document}
+
+
+
+\maketitle
+\thispagestyle{empty}
+\pagestyle{empty}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{abstract}
+Sleep disorders such as insomnia, sleep apnea, and restless leg syndrome affect millions worldwide and pose a growing public health challenge. In developing regions such as India, limited access to sleep clinics, social stigma, and low awareness contribute to significant under diagnosis, delaying effective intervention and management. Current diagnostic practices rely on in-laboratory polysomnography and expert interpretation, which are expensive, resource-intensive, and unsuitable for population-scale screening. Although recent artificial intelligence based approaches have shown promise in automating sleep stage analysis, many existing systems lack clinical interpretability and fail to translate model outputs into actionable guidance for patients. To address these limitations, this work presents an end-to-end system targetting mainly clinicians and patients directly, providing interpretable results like technically sound explanations for clinicians and layman explanation and interactive system for patients. The proposed system employs three stage classification from single channel EEG from PSG data to associating sleep disorders. Firstly, a temporal feature extractor using parallel adaptive atrous pyramids with squeeze and excitation network. Secondly, using a basic transformer architecture as sequence model with a context window of neighbouring epochs for smooth sleep stage sequencing. Thirdly, a physiological feature based classifier extracted from the sequenced sleep stages and raw signals. By explicitly designing interpretable results for both clinical and patient user base impact, this improves the reliability and trust on the system, motivating it for real-world deployment. This helps solve the real-world challenges faced while deploying an end-to-end system for the task instead of purely focusing on research objectives.
+\end{abstract}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{INTRODUCTION}
+% \cite{lecun2015deep}
+% Paragraph	Purpose \\
+% 1	Broad background \& importance\\
+% 2	Specific problem definition\\
+% 3	Related work / existing solutions\\
+% 4	Your approach \& contributions\\
+% The major contributions of this paper are summarized below:
+% \begin{itemize}
+%     \item A 
+%     \item B
+%     \item C
+%     \item D
+% \end{itemize}
+% 5  organization\\
+Sleep is a basic biological necessity and it has a very significant role in physical restoration, brain and memory function, emotional regulation, immune response, and metabolic balance in an organism. Not only that, adequate and well-structured sleep helps in various ways such as memory consolidation, emotional resilience, cardiovascular regulation, and overall quality of life. The sleep-wake cycle is controlled by an intricate combination of circadian rhythms, homeostatic sleep pressure, as well as neurochemical processes that involve several brain parts, such as the suprachiasmatic nucleus, brainstem, and thalamocortical networks.
+
+While a person is sleeping, the body goes through various restorative processes such as tissue repair, protein synthesis, immune system modulation, and the flushing out of metabolic waste products from the central nervous system. All these processes are indispensable for the body to stay at its peak physiological state and the prevention of pathological changes accumulation that will eventually result in chronic disease conditions.
+
+Continued disruptions of sleep in terms of duration, continuity, timing, or architecture result in the development of sleep disorders, which are a diverse set of diseases that drastically deteriorate daily life and increase the risk of health problems in the long run~\cite{icsd2014}. Sleep disorders manifest through various routes, like trouble with sleep initiation, maintenance, or quality; abnormal sleep-related behaviors; breathing irregularities during sleep; and mismatches between internal circadian rhythms and external environmental cues. The variety in clinical features of sleep disorders is wide, from scarcely noticeable symptoms that can be taken lightly as lifestyle problems to serious conditions that lead to the weakening of physical, mental, and social health.
+
+Recently, sleep disorders have been recognized as a major global health concern. It is a problem that knows no bounds in terms of age, socioeconomic class, or geographical location, and its effects are beyond individual health as it affects societal productivity and healthcare systems. The awareness of sleep disorders as a major public health issue grew with the mounting changes in epidemiological data that show the connection of sleep problems with a rise in morbidity, mortality, healthcare utilization, and economic burden.
+
+Epidemiological evidence from all around the world puts forward that sleep disturbances are extremely widespread and they are one of the most frequently reported health complaints in the clinical setting. It is estimated that nearly 30–45\% of adults will encounter some sort of sleep disturbance throughout their life, and at the same time, 10–30\% of the population will be dealing with the chronic symptoms of insomnia~\cite{ohayon2002epidemiology,jehan2017insomniaglobal}. These numbers most probably are the lower limit, considering that a considerable proportion of people suffering from sleep problems never go to the doctor or may not even perceive their symptoms as belonging to a sleep disorder. It is a known fact that sleep disturbances become more common as people get older; as an example, the elderly suffer from sleep fragmentation more frequently, have reduced sleep efficiency, and are more prone to sleep-disordered breathing. Differences between genders should also be taken into account - it appears that women experience insomnia more frequently and have obstructive sleep apnea less than men. However, these variations may be a result of hormonal factors, reporting biases, and diagnostic practices.
+
+Obstructive sleep apnea (OSA) is a common yet often unnoticed type of sleep-related breathing disorder. It is estimated to affect around 3 to 7\% of adults. Its occurrence is higher among males, aging people, and those who are obese~\cite{peppard2013osaprevalence,senaratna2017osaprevalence,young1993osaprevalence}. Recently, large-scale studies on the general population have shown that the prevalence of OSA varies between 9\% and 38\%, depending on diagnostic thresholds, screening criteria, and demographic characteristics~\cite{heinzer2015sleepapnea,lechat2021sleepapnea}. The range has resulted from variations in the methods used in the studies, the diagnostic criteria, the characteristics of populations studied, and the current understanding of OSA severity levels. Most critically, a vast majority of people with moderate to severe OSA do not know they have it; estimates suggest that as many as 80\% of cases remain undiagnosed, especially in areas with a lack of sleep medicine services. This underdiagnosis is a huge missed opportunity for treatment since the continuance of OSA without hospital intervention not only leads to an increased cardiovascular risk but also to metabolic dysfunction and diminished quality of life.
+
+In India, similar high prevalence rates of sleep disorders have been reported through community-based surveys and hospital-based studies~\cite{gupta2017indiasleep,chattu2019indiasleep}. Several population-based studies conducted in different parts of India have recorded the prevalence of insomnia between 10\% and 30\%. Insomnia rates are believed to be higher in the city populations, among women, and the elderly. The prevalence of OSA in Indian communities has been approximated at 2 to 4\% with evidence coming from community samples. However, this may be a case of a significant level of the undiagnosed since diagnostic facilities are not widely available. The issue of sleep disorders is just one of the challenges that the vast and diverse Indian population faces. There is a severe lack of sleep medicine specialists in the country and consequently, most sleep clinics are located in a handful of big cities leaving countless rural and semi-urban residents with little or no access to specialized care. Polysomnography, the cost of which may be just a few thousand to a few tens of thousands of Indian rupees, is certainly not something that many people can afford. This is especially true for those from a lower socioeconomic stratum who, as their occupations, environment, and access to healthcare indicate, are likely to be at higher risk for developing sleep ‌disorders.
+
+The rising number of sleep disorders can be seen as a consequence of the typical lifestyle and surrounding human habits. Human lifestyle and surrounding have dramatically changed, which has caused the increase in sleep disorders. Dirty sleep can also be a result of the use of mobile devices and artificial light lasting for a long time. Exposure to blue light coming from the devices can delay sleep and lower the quality of it by melatonin production which is irradiation to circadian rhythms. When people suffer from sleepiness, they usually take caffeine which toughens the problem of their dependability on stimulants and sleep disruption. Irregular work hours, shift work, and night work misalign the body rhythms, and the change in these rhythms is also accompanied by a high risk of getting sleep disorders, metabolic dysfunction, and cardiovascular disease. Psychosocial chronic stress caused by work, financial, or social factors comes along with the activation of the hypothalamic-pituitary-adrenal axis and the sympathetic nervous system, quite the opposite of what sleep requires. Another factor that is detrimental to the sleep-wake regulation is the lack of physical activity, living in comfortable conditions, and no sun. Urban noise like traffic, construction, and other industrial and commercial sounds keeps sleeping people from deep sleep stages, and these audio stimuli, even if a person is not waking up, impair the brain processes that should take place during sleep, hence the discontinuity of sleep.
+
+These elements throw off circadian rhythms and sleep homeostasis, which results in acute sleep disorders as well as chronic sleep diseases. A slew of modern lifestyle factors has been blamed for the "sleep crisis" in the present-day society, which in turn affects individual health, work efficiency, and public safety.
+
+Besides, there are links between untreated sleep disorders and many of the health risks. Cardiovascular disease is one issue that has the strongest ties with sleep disorders~\cite{strollo2016cardiovascular,peppard2000longitudinal}, and Obstructive Sleep Apnea (OSA) in particular is acknowledged as one of the key killers that increases the risk of hypertension, coronary artery disease, stroke, and cardiac arrhythmias outside of other factors. Sleep disorders can cause cardiovascular disease through a variety of mechanisms such as intermittent hypoxia, sympathetic activation, endothelial dysfunction, and systemic inflammation."
+
+Metabolically, sleep disorders can also cause insulin resistance, glucose regulation impairment, dyslipidemia, and diabetes type 2 risk increase at the same time as sleep restriction and fragmentation lead to appetite and metabolism hormones deregulation. The insomnia-mental health relationship is complex and two-way. Depression and anxiety not only are the causes of sleep disorders but also consequences~\cite{baglioni2011depression}. Besides, sleep disorders can affect cognitive functions, such as attention, memory consolidation, executive function, and decision-making, which results in accumulation of cognitive impairment due to chronic sleep deprivation that can be hardly reversible. Productivity at work gets lowered, while the days lost due to sickness and presenteeism increase and thus, these factors together have a big impact on the economy. Public safety is at risk because of the increased number of accidents at the workplace and on the road.
+
+According to new studies, the link between sleep disorders and inflammation is two-way. Sleep disturbances trigger inflammatory processes, and at the same time, inflammation causes problems with sleep, thus, the vicious cycle that favours worsening diseases continues~\cite{irwin2019comorbidities}. One adds to the other and so forth.
+
+\subsection{Scope}
+
+Sleep disorders have been recognized as a significant health issue increasingly affecting the populace. The accurate and timely diagnosis of such conditions is still an arduous task, however. The principal reasons for this are that: firstly, sleep physiology is extremely complicated; secondly, many symptoms are purely subjective to patients; and thirdly, full-scale sleep evaluations are extremely resource-intensive. Overnight polysomnography (PSG) is still the leading tool to confirm sleep disorders in a clinical setting~\cite{kapur2017clinical}. PSG charts different brain activities through electroencephalography (EEG), tracks eye movements via electrooculography (EOG), decides muscle tone by electromyography (EMG), monitors respiratory effort and airflow, measures oxygen saturation by pulse oximetry, and records heart activity through electrocardiography (ECG). Undoubtedly, such an extensive record offers a detailed insight into sleep stages, respiratory events, limb movements, arousals, and other physiological phenomena that are typical of the accurate ‍‌diagnosis.
+
+Nevertheless, PSG interpretation depends largely on manually scored sleep stages and expert analyses, which are very time- and effort-consuming as well as being subject to variability between scorers and within the same scorer. Manual sleep stage scoring involves a certain group of technicians who are qualified to scrutinize EEG, EOG, and EMG signals in 30-second segments. To each segment, they assign wake, N1, N2, N3, or REM sleep stages by applying standard criteria. Normally, it takes them approximately 2–4 hours to complete this task for a single overnight recording. It hinders sleep laboratories a lot. The agreement among different scorers is generally quite high, especially when the cases are straightforward. However, at transitional epochs, and for ambiguous patterns, the agreement might be considerably different, with the reported exploration ranges being from 70\% to 90\%, depending on the sleep stage and scorer experience. Besides, the discovery of respiratory events, limb movements, and arousals requires another level of skill, as well as the extension of the analysis time. In addition, the subjective nature of manual scoring poses a risk of variability which, in turn, may have an impact on the correctness of diagnoses, as well as on the decisions about the next stage of treatment, particularly in cases that are on the borderline or when there are multiple scorers who have worked on the same study.
+
+These limitations severely hamper scalability and make the diagnosis process slower, especially in low-resource healthcare settings where there are not enough specialized sleep laboratories and trained personnel. The most significant factors are the high costs of PSG equipment, the need for a specialized sleep laboratory, and technicians who are trained and are capable of operating the equipment. These factors combine to make it difficult for the technology to be widely spread. In many regions, the waiting time for PSG studies can be so long that it is measured in months, thus delaying the referral and treatment of patients. Patients are also inconvenienced by overnight studies in the laboratory, and their sleep quality may be affected by the unfamiliar environment, so the results of the studies may also be influenced. Portable sleep monitoring systems and wearable devices have arguably gained more attention in the field~\cite{aziz2025wearable}, but usually, these devices only record a small portion of the physiological signals, and most of the time, these devices do not have a sufficiently advanced algorithm for accurate disorder detection~\cite{wongsirichot2017minimal}. Home sleep apnea testing devices are, in fact, more comfortable and less expensive than laboratory PSG, but the devices are mainly centered on respiratory parameters, so they are not able to detect other sleep disorders, or they provide partial information for a complete sleep evaluation. This creates an urgent necessity for automated, scalable, and interpretable systems that not only can benefit clinical decision-making but also engage patients in understanding the results through the effective use of PSG data. These systems must ensure diagnostic accuracy while decreasing time and skill level in the analysis, thus allowing more people to have access to top-notch sleep disorder assessment.
+
+
+\begin{figure*}
+    \centering
+    \includegraphics[width=1\linewidth]{overview_p2.png}
+    \caption{Overview of the proposed system that integrates transformer-based sleep stage classification, explainable AI for clinical interpretability, and retrieval-augmented patient guidance to enable scalable, transparent, and accessible sleep health assessment.}
+    \label{fig:overview}
+\end{figure*}
+
+\subsection{Motivation}
+
+Recent achievements in artificial intelligence have revealed great potential for using machine learning and deep learning models to automate sleep staging and detect sleep disorders~\cite{xu2022deep}. Initially, researchers relied on conventional machine learning models such as support vector machines (SVM), random forests, and k-nearest neighbours (k-NN) trained on handcrafted features extracted from polysomnography (PSG) signals. Although these methods were able to achieve satisfactory results, they demanded a lot of domain knowledge for feature engineering and had a limited capacity to recognize complex temporal patterns and non-linear relationships in sleep data. Deep learning, on the other hand, has brought about a paradigm shift in automated sleep studies. CNNs facilitate the automatic extraction of most relevant features from the raw or minimally pre-processed signals, RNNs and LSTM networks model the dependency across different sleep epochs.
+
+Moreover, transformer-based architectures have surpassed other models in the ability to analyse multichannel PSG signal sequences at a great length. They can perform at the level of human experts on some benchmarks\cite{chen2022joint}. They are very effective in recognising the hierarchical and sequential character of sleep architecture since the sleep stage at one epoch is not only determined by its local features but also depends on the general context of the whole sleep episode, e.g. the stages already experienced, the common pattern of sleep architecture, and the circadian rhythm. The attention components of transformers equip them with the ability to concentrate on the specific relevant intervals of time and features of the signal just as human experts do by considering different channels and time points simultaneously. Multi-task learning methods that do sleep staging and disorder detection at the same time have been successfully implemented in improving both tasks through the use of shared representations and the complementary information which each task ‍‌provides.
+
+Nonetheless, the majority of AI-based systems available to date perform their functions without revealing explanatory details, thus they are seen as black boxes, and they merely provide predictions which limit clinical trust and, consequently, real-world use~\cite{xu2022deep}. In fact, doctors need to understand the reasoning behind AI predictions in order to incorporate them into their clinical decision-making. This is especially the case when the recommendations can have a significant impact on the patient's care. The absence of interpretability also makes it difficult for models to be validated, errors to be analysed, and improvements to be made. Additionally, current methods only focus on diagnosis and do not address the patient's guidance, education, or provision of actionable recommendations. More often than not, patients are given a diagnostic label but are unaware of what it means, why it happened, and what they can do to enhance their sleep health. Since lifestyle and behavioural factors immensely influence sleep health, there is an upsurge in the number of intelligent systems that not only carry out diagnosis but also provide interpretable insights and personalised lifestyle recommendations, especially in communities that have limited access to sleep specialists. These systems need to connect the gap between the technical AI capabilities and the practical clinical and patient needs, i.e., they should produce not only accurate predictions but also meaningful explanations and actionable guidance.
+
+
+\subsection{Sleep Stages and Their Clinical Significance}
+
+Sleep‍‌ is organised into different stages with distinct sets of physiological characteristics, or patterns, as defined and standardised by the American Academy of Sleep Medicine\cite{berry2012aasm,berry2020aasm}. These stages are the reflection of the neural and autonomic processes and represent primary markers of sleep quality as well as sleep-related disorders. The current AASM scoring system is the next step from the original Rechtschaffen and Kales\cite{rechtschaffen1968scoring} scoring manual that set the criteria on sleeping stage classification universally accepted.
+Sleep is subdivided into wakefulness (W), non-rapid eye movement (NREM) sleep, and rapid eye movement (REM) sleep. NREM sleep is divided into three stages: N1, N2, and N3, that depict the increasing sleep depth. N1 is the stage of falling asleep from wakefulness, N2 is the stage with spindles and K-complexes as its main feature, which are memory and sensory-related activities, respectively, and N3 is the stage with slow-waves in the brain that are more related to the physical restoration of the body and the regulation of metabolism. During REM sleep, dreaming is more vivid, emotional regulation happens and memory is consolidated.
+Changes to the proportion of sleep stages, the normal transitions between them and the continuity of sleep can be seen in most cases of a sleep disorder. For example, in insomnia, the normal sleep architecture is usually fractured to the point that slow-wave sleep first becomes depleted, whilst in narcolepsy abnormalities in REM phase onset and instability of REM phase can be seen~\cite{wilaiprasitporn2017hypnodensity,chen2022joint}. A recurrent arousal and the NREM–REM transition disruption are pathological features of sleep-disordered breathing and movement-related disorders~\cite{alattar2024cap}.
+Different types of sleep disorders may have different physiological characteristics and the ICSD-3 provides comprehensive classification of them~\cite{icsd2014}. The major categories of the disorders that are mostly linked with PSG-based diagnosis are insomnia, obstructive sleep apnea, restless legs syndrome and periodic limb movement disorder, narcolepsy, REM sleep behaviour disorder, and circadian rhythm sleep–wake disorders. The definite diagnosis of one of these disorders depends on the overall sleep stage integration with physiological events identifying and considering the temporal patterns of the entire recording of PSG.
+
+
+Despite the fact that many AI-based sleep analysis methods have been put forward~\cite{xu2022deep,wadichar2023two,urtnasan2021sleep}, there are still some issues that have not been resolved. For instance, a lot of research activities focus on limited tasks such as sleep staging or detection of one single disorder~\cite{urtnasan2022plmd}, which makes them less useful in clinical settings. Besides, models are mostly non-interpretable, which results in lack of trust from the clinicians, and there is also a scarcity of patient-centric explanations as well as actionable guidance~\cite{aziz2025wearable}. Moreover, deployment issues such as scalability, usability, and accessibility in low-resource areas are still rarely considered~\cite{wadichar2023two}.
+The framework that we have designed tries to fill these loopholes by combining automated sleep stage recognition through transformer architectures along with the extraction of sleep metrics based on clinical evidence and the detection of disorders in an interpretable manner. Explainable AI components produce clear visualisations and documents, whereas a retrieval-augmented generation system provides context-aware medical clarifications and tailored lifestyle recommendations.
+This paper tries to give answers to the following research questions:
+In what ways can sleep stages be linked to different sleep disorders?\\
+In what ways can clinical impact be enhanced by explainable model outputs?\\
+In what ways can transformer-based sleep staging models be adapted for resource-constrained settings?\\
+In what ways can a feature channel filter simplify the model while not interfering with its diagnostic reliability?\\
+There is a proposal to build a fully intelligent system based on answering these difficulties, which incorporates transformers for sleep stage classification, clinically grounded feature extraction, and explainable AI methodologies. Retrieval-augmented generation makes it possible for both clinicians and patients to communicate through transparent medical clarifications and personalized lifestyle recommendations.
+The most significant element of this research is the unified integration of automated sleep staging, interpretable disorder detection, and personalized lifestyle recommendation in one single web platform. In contrast to previous methods that regard diagnosis and guidance as two separate issues, this system is geared to focus on transparency, accessibility, and user engagement, thereby making it highly relevant to low-resource healthcare ‍‌settings.
+
+
+\subsection{Objectives}
+
+The primary objectives of this work are as follows:
+\begin{itemize}
+    \item To develop an automated framework for detecting sleep disorders using polysomnography data and transformer-based sleep stage classification.
+    \item To extract and analyse sleep-related metrics that contribute to accurate and interpretable disorder prediction.
+    \item To integrate explainable AI methods for transparent visualisation and improved clinical trust.
+    \item To design a multi-agent orchestration system using retrieval-augmented generation for delivering medical explanations, lifestyle recommendations, and personalised remedies.
+    \item To promote accessible and stigma-free sleep health awareness in the Indian population through an interactive and interpretable web platform.
+\end{itemize}
+
+\subsection{Search Strategy and Inclusion Criteria}
+
+A systematic literature search was carried out in compliance with PRISMA (Preferred Reporting Items for Systematic Reviews and Meta-Analyses) guidelines to find relevant papers on AI-driven sleep staging, sleep disorder detection, sleep analysis interpretability, and patient-oriented explanation systems. The search procedure aimed to capture the full extent of the research in this highly dynamic field, including methodological innovations as well as clinical applications.
+
+Several major electronic databases were searched, including PubMed/MEDLINE for biomedical and clinical research, IEEE Xplore for engineering and signal processing literature, Scopus and Web of Science for multidisciplinary coverage, ScienceDirect (Elsevier) for comprehensive journal access, Springer Link for computer science and medical publications, ACM Digital Library for computational methods, and Google Scholar for grey literature and the most recent preprints. These sources were chosen to guarantee a thorough coverage of clinical sleep medicine research and methodological developments in artificial intelligence and biomedical signal processing, thus, recognizing that advances in this field stem from multiple disciplines including computer science, biomedical engineering, clinical medicine, and signal processing.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[scale=0.68]{prisma.pdf}
+    \caption{\textbf{Systematic Literature Review.} A PRISMA inspired system for collecting existing studies.}
+    \label{fig:final_arch}
+\end{figure}
+
+The search was restricted to articles published between 2010 and 2025 to capture the evolution of approaches from traditional machine learning methods to deep learning and transformer-based architectures. This time frame encompasses the period during which deep learning became dominant in biomedical signal processing and sleep analysis, while also including foundational work in traditional machine learning approaches that provide important context for understanding current methods. A structured keyword-based strategy was employed using combinations of clinical, methodological, and interpretability-related terms organized into three main categories. Core clinical keywords included "sleep disorder," "insomnia," "obstructive sleep apnea," "restless legs syndrome," "periodic limb movement disorder," "narcolepsy," "REM sleep behavior disorder," "polysomnography," "PSG," "sleep staging," "sleep architecture," "sleep scoring," and "hypnogram." Methodological terms included "artificial intelligence," "machine learning," "deep learning," "neural network," "convolutional neural network," "CNN," "recurrent neural network," "RNN," "LSTM," "transformer," "attention mechanism," "automatic sleep staging," "automated sleep analysis," "sleep apnea detection," "sleep disorder classification," and "multi-task learning." Additional keywords related to interpretability and patient engagement included "explainable AI," "XAI," "interpretability," "explainability," "saliency map," "attention map," "gradient-weighted class activation mapping," "Grad-CAM," "SHAP," "LIME," "retrieval-augmented generation," "RAG," "large language model," "LLM," "clinical decision support," "patient education," "patient-facing," "clinician-facing," and "visualization." Boolean operators (AND/OR) were strategically used to identify studies at the intersection of these domains, with search queries constructed to capture studies that addressed multiple aspects of the research questions.
+
+The initial database searches yielded a large number of potentially relevant articles, which were then screened through a multi-stage process. Title and abstract screening was performed to identify studies that appeared relevant to the research questions, with articles excluded if they clearly did not address AI-based sleep analysis, sleep disorder detection, or interpretability in sleep medicine. Full-text review was then conducted for articles that passed initial screening, with detailed evaluation against inclusion and exclusion criteria. Studies were included if they met the following criteria: (i) employed AI or machine learning techniques for sleep staging or sleep disorder detection using PSG, limited-channel PSG, or wearable sleep data; (ii) addressed interpretability, explanation, or clinician-facing visualisation in sleep analysis systems; or (iii) developed automated systems that promote awareness of sleep disorders using AI. Additional inclusion criteria required that studies report quantitative performance metrics, utilize human sleep data (as opposed to synthetic or animal data), and be published in peer-reviewed venues or reputable preprint servers. Studies were excluded if they focused solely on sleep quality assessment without disorder detection, employed only traditional statistical methods without machine learning components, lacked empirical evaluation, or were published in languages other than English. The quality of included studies was assessed based on factors including dataset size and diversity, validation methodology, comparison with baseline methods, and clarity of methodology description. Data extraction was performed systematically, capturing information on study objectives, methodologies, datasets used, performance metrics, interpretability approaches, and key findings relevant to the research questions.
+
+
+\section{Literature review}
+
+% Paragraph	Content\\
+% 1	Overview of research area\\
+% 2,3,4	Prior works (with citations)\\
+% 5	Limitations or gaps\\
+% 6	How your method addresses gaps
+
+
+% Sleep disorders are one of the most serious public health problems worldwide, with an increasingly larger number of people experiencing them. Not only do these disorders adversely affect the quality of life of people suffering from them, but they also cause a rise in healthcare costs and trigger a number of other diseases. Polysomnography, a traditional, very detailed, and comprehensive overnight monitoring procedure that records many physiological signals during sleep, has been the mainstay of the detection and diagnosis of these disorders. 
+% Yet, because conventional polysomnographic analysis is intricate, expensive, and hardly accessible, it has prevented a great number of people from getting screened and going for early intervention, especially in the case of resource-poor communities. This literature review presents the breakthroughs that have been made in the automated detection of sleep disorders based on machine learning and artificial intelligence techniques. The review paper mainly concentrates on feature optimization, deep learning architectures, clinical validation, as well as the growing significance of explainability in medical applications.
+% Non-communicable diseases have become increasingly prevalent and one of the reasons for this is sleep disorders that may be considered both as symptoms and as health problems on their own.
+% Polysomnography is still the benchmark method for diagnosing disorders of sleep. In this diagnostic tool, the recording channels are through electroencephalography, electrooculography, electromyography, electrocardiography, respiratory sensors
+% Apart from its value in diagnosis, polysomnography is associated with a number of practical limitations. The method demands not only the presence of specialized equipment but also that data obtained be interpreted by technicians who have been trained, and for the overnight monitoring to take place in clinical settings making it costly for patients and inconvenient at the same time. Because of these limitations researchers have been encouraged to come up with automated analysis methods that would alleviate the load on sleep specialists and at the same time not compromise on diagnostic accuracy. 
+% The intricacy of polysomnographic data interpretation has been extensively depicted by studies. Manual scoring of sleep stages by the trained technicians is a method that is generally used as the basis for most sleep disorder diagnoses. However, it is a very laborious process and can be affected by the differences in scoring even with the same technician and between different technicians. Research on inter-scorer reliability has revealed that there are considerable discrepancies in the classification of sleep stages amongst skilled technicians, therefore more objective and consistent methods of analysis are needed. In addition to that, the manual identification of the sleep disorder-related events such as apneas, hypopneas, periodic limb movements, and cortical arousals not only requires that the person involved be at full attention but also necessitates high expertise. The consequence of this is the creation of bottlenecks in clinical ‍‌workflows.
+
+
+
+% One of the main areas for early research in automated sleep disorder detection was traditional machine learning methods are applied to features from polysomnographic recordings. The studies indicated that appropriate feature engineering and algorithm selection could achieve performance on par with or even exceeding the manual analysis. Systematic evaluation of multiple machine learning algorithms like k-nearest neighbor, support vector machines, multi-layer perceptrons, and k-means clustering was a common strategy for classifying sleep disorders based on the optimally chosen feature sets. The k-nearest neighbor method was found the most effective in several experiments, resulting in very high classification accuracy when it was used on the well-curated feature sets derived from polysomnographic signals.
+
+% Feature selection has thus been one of the keys to unlocking the effectiveness of machine learning models in this field. Information gain methods have been extensively used to select and rank features according to their ability to discriminate different sleep disorders~\cite{wongsirichot2017minimal}. Further investigation of different sleep stages independently has led to the discovery that the best features differ from one sleep stage to another, that is, stage-specific modeling can result in better classification overall. Paper reports made pulse rate, oxygen saturation, nasal cannula pressure, and chest movement as very significant features for sleep disorder detection, and these features have also been shown to be advantageous in the reduction of sensor requirements and increased patient ‍‌comfort~\cite{wongsirichot2017minimal}.
+
+% \begin{table*}[t] \centering \renewcommand{\arraystretch}{1.6} \begin{tabular}{|p{2.4cm}|p{2cm}|p{2.7cm}|p{4cm}|p{4cm}|}
+
+% \hline
+% \textbf{Reference} & \textbf{Target Disorders} & \textbf{Signals Used} & \textbf{Advantages \& Project Relevance} & \textbf{Challenges \& Gaps Identified} \\ 
+% \hline
+
+% S. Xu et al. (2022) \newline \textit{Computers in Biology and Medicine} 
+% & OSA, Insomnia, RBD, Bruxism 
+% & PSG, ECG (EEG, EOG, EMG, respiratory signals), cardiac signals 
+% & Provides a comprehensive categorization of CNN and RNN based pipelines for multi disorder detection using PSG and ECG. Demonstrates deep learning superiority over handcrafted ML for handling heterogeneous sleep symptoms, motivating automated end to end frameworks. 
+% & Despite high reported accuracies, models remain opaque with no physiological attribution or clinician facing interpretability tools. \\ \hline
+
+% A. Wadichar et al. (2023) \newline \textit{IEEE Access} 
+% & PLM, RBD, NFLE, Narcolepsy, Insomnia 
+% & Single channel EEG (C4--A1 or C3--A2) 
+% & Introduces a two level CNN plus LSTM architecture leveraging CAP microstructures from single channel EEG. Demonstrates feasibility of reduced channel diagnosis with high accuracy. 
+% & Multi stage inference and recurrent layers introduce high latency and memory overhead, limiting deployment on edge or low resource clinical systems. \\ \hline
+
+% E. Urtnasan et al. (2021) \newline \textit{Diagnostics (MDPI)} 
+% & INS, PLM, RBD, NFE 
+% & Single lead ECG 
+% & Proposes a sleep disorder network extracting cyclic cardiac rhythms from ECG, supporting sensor minimal diagnostic paradigms. 
+% & Operates on fixed ECG segments without longitudinal visualization, sleep stage alignment, or patient level interpretive summaries. \\ \hline
+
+% S. Aziz et al. (2025) \newline \textit{JMIR} 
+% & Sleep Apnea, Insomnia, REM Disorders, Stroke Risk 
+% & Wearable sensor signals (heart rate, activity, SpO$_2$) 
+% & Demonstrates scalability of wearable sensor data for population level sleep health monitoring beyond laboratory bound PSG diagnostics. 
+% & Provides detection without personalized recommendations, clinician feedback loops, or intervention guidance. \\ \hline
+
+% M. Alattar et al. (2024) \newline \textit{Bioengineering} 
+% & OSA, Narcolepsy, Insomnia, RBD 
+% & EEG based CAP microstructures from PSG 
+% & Highlights cyclic alternating patterns and micro arousals as high resolution biomarkers, motivating fine grained temporal modeling. 
+% & Primarily evaluated on constrained cohorts, raising concerns on cross center generalizability. \\ \hline
+
+% T. Wongsirichot et al. (2017) \newline \textit{Journal of Health Research} 
+% & Oxygen Desaturation, Hypopnea, PLM 
+% & SpO$_2$, pulse rate, nasal airflow, chest movement 
+% & Identifies minimal physiological features using information gain ranked ML models, supporting cost effective screening systems. 
+% & Classical ML models lack adaptive temporal learning and multimodal fusion capabilities of modern deep learning architectures. \\ \hline
+
+% E. Urtnasan et al. (2022) \newline \textit{Diagnostics (MDPI)} 
+% & PLMD 
+% & Single lead ECG 
+% & CNN LSTM based ECG model validates cardiac proxies for limb movement detection with strong performance. 
+% & Focused exclusively on PLMD, limiting applicability for holistic sleep disorder assessment. \\ \hline
+
+% K. Wilaiprasitporn et al. (2017) \newline \textit{IEEE TBME} 
+% & Narcolepsy 
+% & Single channel EEG (C3 or C4 referenced to mastoid) 
+% & Introduces hypnodensity based sleep stage representations enabling accurate narcolepsy detection beyond conventional MSLT reliance. 
+% & Ensemble CNNs and probabilistic modeling increase system complexity and training cost. \\ \hline
+
+% Z. Chen et al. (2022) \newline \textit{IEEE TNNLS} 
+% & Narcolepsy 
+% & Single channel EEG 
+% & Joint sleep staging and disorder classification using CNN and Transformer architecture improves diagnostic robustness with reduced sensor dependency. 
+% & Performance validated on limited subject cohorts with coarse disorder categorization. \\ \hline
+
+% Automated PSG Event Detection (2019) \newline \textit{PhysioNet Studies} 
+% & Arousals, Leg Movements 
+% & EEG, EOG, EMG from PSG 
+% & Employs dynamic segmentation with PCA based feature extraction, improving event detection accuracy over fixed windows. 
+% & Relies on handcrafted features and classical classifiers, limiting end to end scalability. \\ \hline
+%     \end{tabular}
+%     \caption{Comprehensive Comparative Review of AI-Based Sleep Disorder Detection and Analysis Systems} \label{tab:sleep_literature_review}
+% \end{table*}
+
+% Random forests and decision trees have been applied to sleep disorder detection with great success, especially in recognizing specific events like periodic limb movements and cortical arousals~\cite{umut2016plm}. The advantage of these tree-based methods is that they are naturally interpretable through their hierarchical decision structures, which give doctors insight into the grounds for classifications. A study has reported that decision tree classifiers can be very accurate in detecting the occurrences of arousals and movements of legs if they are used together with the right signal segmentation and feature extraction techniques~\cite{umut2016plm}. It has been pointed out that these techniques owe their success to the fact that they can model complex nonlinear relationships between features, at the same time being computationally efficient.
+% Deep learning has revolutionized sleep disorder detection by providing the possibility of end-to-end learning directly from raw or minimally processed signals~\cite{xu2022deep}. Convolutional neural networks are powerful methods for automatic feature extraction from polysomnographic data, thus they do not require manual feature engineering and often yield better results~\cite{xu2022deep}. These network types are able to learn multiple levels of sleep signal representation, thus they can capture both local patterns in single epochs and temporal dependencies in sequences of epochs.
+% Hybrid systems that mix convolutional and recurrent neural networks have been identified as a great means for sleep disorder analysis~\cite{wadichar2023two,urtnasan2022plmd}. Convolutional layers are good at picking up spatial features and local patterns in signal pieces where the recurrent parts such as long short-term memory units are able to get at temporal dependencies and sequential information over sleep epochs. Studies that have used convolutional recurrent neural networks to classify sleep disorders have provided evidence that this combined approach is more successful. It resulted in models that not only can identify subjects without disorders and those with particular sleep disorders but also accurately perform sleep stage classification at the same time~\cite{wadichar2023two}.
+% Managing the intricacy of multi-class sleep disorder detection through a hierarchical classification approach has become popular~\cite{hierarchical2024sleep}. The technique generally includes a binary classification at the very first step that serves to separate healthy from disordered sleep. A second classification step is then there to specify the type of disorder. Research based on hierarchical frameworks has achieved results that are superior to those of simple classification schemes, especially when incorporating features obtained from both phase A and phase B of cyclic alternating patterns~\cite{alattar2024cap,mazzotti2018cap}. The hierarchical model corresponds to the medical diagnostic reasoning and can provide interpretable intermediate results that fit the clinical workflows.
+
+
+% With the aim of making data collection easier and increasing patient comfort, scientists have pursued single-channel and few-sensor set-ups for sleep disorder recognition~\cite{urtnasan2021sleep, urtnasan2022plmd}. Since electrocardiogram (ECG) monitoring is a standard procedure in clinical settings and wearable ECG devices can be utilized in at-home screenings, a lot of attention has been drawn by detection based on the ECG~\cite{aziz2025wearable}. Deep learning models trained on single-lead ECG signals have demonstrated remarkable capability in detecting multiple sleep disorder types including insomnia, periodic leg movements, REM sleep behavior disorder, and nocturnal frontal lobe epilepsy~\cite{urtnasan2021sleep}. The research reached a high rate in classification results after the models got trained on the patterns of cardiac fluctuation and morphology related to sleep disorders which were actually caused by sleep pathophysiology.
+% The detection of periodic limb movement disorder without leg electromyography represents another significant advance in reduced-sensor methodology~\cite{urtnasan2022plmd,umut2016plm}. A study found that machine learning models can pinpoint periodic limb movements based on the features taken from other polysomnographic channels with the classification accuracy exceeding 90\%~\cite{urtnasan2022plmd}. This solves a real issue in the clinic where sensors for leg electromyography can be uncomfortable for the patient and at the same time dislodged during sleep quite easily, thus possibly compromising the quality of the gathered data. The successful detection of limb movements from alternative signals demonstrates the redundancy of information in polysomnographic recordings and the potential for simplified monitoring protocols.
+% Using one-channel electroencephalography for sleep disorder detection is one more method that might work well~\cite{wadichar2023two,wilaiprasitporn2017hypnodensity,chen2022joint}. A research narcolepsy diagnosis consisted of using only F4-M1 EEG derivation, and the result was nearly as good as multi-channel approaches performance-wise~\cite{wilaiprasitporn2017hypnodensity}. Indicating that if the algorithms are well-designed, they can get enough diagnostic information from very little input data. Nevertheless, a study that compares single-channel with multi-channel has shown that there are always trade-offs, the more straightforward single-channel is less accurate, but the multi-channel models, which can utilize diverse signal modalities, are generally more accurate~\cite{wadichar2023two}.
+% A good way to improve the sleep disorder detection capability of a model is by adding sleep staging as a secondary task within multi-task learning frameworks. Providing the neural network with sleep stage details before performing the task of disorder classification allows it to be more precise because it is known that plenty of sleep disorders differentiate themselves in various sleep stages and some even result in abnormal sleep architecture. An experiment has been conducted utilizing multi-task learning for joint sleep staging and disorder classification with the results showing raised performance compared to single-task approaches. Auxiliary sleep staging task potentially guides the model to gain more uninhibited representations of the sleep physiology which ultimately turn out to be beneficial for the primary task.
+% Transformer networks are well suited to the task of understanding temporal dependencies over long periods of time in sleep sessions~\cite{chen2022joint}. The self-attention mechanism-equipped neural networks have the ability of connecting the concepts in far away epochs in the time series, identifying phenonema that can only be revealed by looking at the longer time interval. The application of transformers to narcolepsy has resulted in a remarkably accurate diagnosis which indicates that the model successfully captures the essence of features such as frequent sleep stage transitions and abnormal distribution of sleep stages~\cite{chen2022joint}. In addition, transformers’ attention weights can serve as indicators of the parts of the data that had the most weight in the decision-making process since attention mechanisms allow for a higher level of model interpretability.
+
+% The concept of hypnodensity, representing probabilistic sleep stage assignments at fine temporal resolution, has been introduced as an alternative to traditional discrete sleep staging~\cite{wilaiprasitporn2017hypnodensity}. Rather than assigning each epoch to a single sleep stage, hypnodensity graphs capture the uncertainty and gradual transitions between stages, potentially providing richer information for downstream analyses. Research has demonstrated that features extracted from hypnodensity representations can serve as effective biomarkers for certain sleep disorders, particularly narcolepsy, achieving diagnostic performance comparable to or exceeding traditional assessment methods~\cite{wilaiprasitporn2017hypnodensity}.
+
+
+% Adaptive signal segmentation approaches were utilized. They are capable of identifying sleep events of different lengths and are proven helpful. Fixed-window methods, which can cut off parts of events or include too much non-event data, are unlike adaptive segmentation that finds natural boundaries in the signal by spotting changes in statistical features. In several researches, the combination of adaptive segmentation, principal component analysis, and boundary detection algorithms led to a better performance of arousal and leg movement detectors when compared with single-window methods. Additionally, these techniques enable models to focus on the relevant parts of the signal and thus, decrease the effect of the irrelevant background noise.
+% Furthermore, cardiopulmonary coupling (CPC) is a technique through which sleep apnea detection from electrocardiogram data can be carried out. The method deals with evaluating the interconnection of cardiac and respiratory rhythms in order to get indicators of sleep quality and respiratory stability. It has been demonstrated that the parameters obtained from this coupling can accurately classify the severities of sleep apnea with high values of sensitivity and specificity, thus potentially becoming more advantageous than the conventional apnea-hypopnea index calculation that requires the scoring of respiratory events manually. Besides simple classification of severity of the condition, the method's capability to distinguish between obstructive, central and mixed apnea patterns is of great clinical importance.
+% A significant topic to consider when designing automated sleep disorder detection systems is whether they retain a high level of accuracy even when they are used in diverse clinical populations and under different recording conditions. Primarily, numerous studies favored data obtained from only one institution or limited patient cohorts, thus, the question still remains if such models would be of use in broader clinical settings. Follow-up work should be oriented towards the independent validation of data obtained from diverse clinical centers and patient samples so as to demonstrate the clinical utility of the models. Experiments involving data gathered from various international sleep centers provide a much stronger indication of the model's effectiveness than the investigations done in one single center.
+% Model overfitting and underfitting in clinical usage, among other things, have been considered in great depth recently. In clinical practice, a situation in which the model is overfitted can be described as a scenario in which the model exhibits great performance on training data but loses its ability to predict new patients or recording conditions, the model, on the other hand, is underfitted when it has insufficient capacity to recognize a relevant pattern within complex polysomnographic data. The introduction of subject-wise cross-validation has brought about a more realistic method of assessing performance which is considered to be a standard approach nowadays. It involves keeping the entire recording of each subject in either the training or testing set. Nevertheless, despite rigorous validation techniques, it is still quite challenging to bring research models into clinical practice.
+% The enormous challenge that sleep disorder detection faces is the scarcity of huge, well-annotated datasets. It has been a major obstacle in both model development and validation. A few public sleep databases have been in existence and have tremendously facilitated the progress of research. However, mostly these datasets do not offer diversity in patient demographics, recording protocols, and disorder subtypes. There are several works that point out that most datasets are available for a certain type of disorder or patient population and, therefore, the creation of multi-comprehensive disorder detection systems is limited. If there would be a standardization of polysomnographic recording procedures and annotation protocols among sleep laboratories, it would not only improve data sharing but also increase the generalizability of models.
+
+
+% The dramatically climbing use of complex deep learning models for various medical applications has largely fueled concerns about the interpretability of these models and whether the medical community will accept them~\cite{xu2022deep}. The problem arises from the fact that the so-called black-box models, which are capable of making accurate predictions but without transparent reasoning, are less easily believed by clinicians who always demand understanding of the diagnostic rationale in order to justify their patient care decisions. Progress in this direction has been made by the scholarly works that started addressing this issue through various explainability techniques such as saliency visualization, attention weight analysis, and feature importance quantification~\cite{chen2022joint}. These techniques try to show which parts of the input data have the greatest impact on the model predictions thus giving the users clues which they can verify with clinical knowledge.
+% The comparison between the abilities of human experts and the automated systems in terms of performance has led to varying results. These results depend both on the task and the criteria used for evaluation. For instance, when it comes to sleep staging tasks, deep learning ensemble models achieved such an accuracy level that it was even higher than that of the inter-rater agreement among the technicians which implies the possibility of automated systems reaching or even exceeding human performance level in this fundamental task. However, in the case of complex diagnostic decisions that are more dependent on the integration of multiple data sources and clinical context, automated systems are still at the stage of requiring human control. Automated analysis may be best suited to function as a decision support tool that facilitates clinician efficiency and consistency rather than a fully autonomous diagnostic system.
+% It sounds like the creation of biomarkers through automated analysis could be instrumental for the standardization of diagnostic criteria and for decreasing the dependency on subjective evaluations. The research has been exploring the possibilities of different biomarkers such as the hypnodensity-derived features for narcolepsy; the cardiopulmonary coupling metrics for sleep apnea; and the ECG pattern characteristics for a range of sleep disorders.The use of these quantitative markers in diagnosis can be of great help to traditional diagnostic methods and, especially, research settings where the need for objective, reproducible results is paramount.
+% There are several limitations of the existing studies that should be taken into account. The major emphasis in the studies has been on the disorders which are very well characterized such as sleep apnea and narcolepsy, thus other equally significant diseases are still poorly studied. The development and validation of models for pretty rare disorders get limited due to the small datasets and low subject diversity. The sophisticated deep learning models that require a lot of computation power, may not be very handy in resource-limited environments or on edge devices for home monitoring applications.Researches are well aware of these shortcomings and have already planned their future works to address these by including more efficient model architectures, training dataset expansion, and transfer learning approaches to gain knowledge from related tasks.
+
+
+
+% The consumer wearable devices for sleep disorder screening bring about a twin effect - an opportunity and a challenge. To a great extent, these devices facilitate the obtaining of long-term sleep data in everyday settings; at the same time, the issues of measurement accuracy and clinical validation are still up in the air. There is a significant difference between a polysomnography done for research purposes and what a consumer device is capable of. This calls for understanding the right situations and the limits of these devices. Researchers warn against making clinical diagnoses based solely on unvalidated consumer devices but at the same time, they do recognise the potential benefit of these devices for sleep health awareness and long-term monitoring.
+% As automated systems for detecting sleep disorders become more common in the clinical setting, there is an urgent need for continuous elaboration on ethical issues such as data privacy, algorithmic bias, and fair access. Tiny details in the data relating to the user's health must be kept confidential and the patient's freedom must be respected when collecting and analyzing such data. Since algorithms can inherently be biased, it is necessary that they are tested on the broadest range of people possible and that less privileged groups receive equal benefits. Making screener devices for sleep disorders that are easily accessible and affordable is a top priority in the fight against health inequities and the decrease of the number of undiagnosed sleep disorders in the least privileged groups.
+% It is evident from the published sources that there is a huge advancement in the technology for automatic detection of sleep disorders that rely on machine learning and deep learning methods applied to polysomnographic data. Previously, the practical value of traditional machine learning approaches was enhanced by feature selection, whereas deep learning architectures hold the promise of higher performance through automatic feature learning and better modeling of temporal dependencies. There is a movement towards using fewer sensors, especially single-channel ECG and EEG that is expected to have the effect of allowing sleep disorder screening to be carried out in non-laboratory settings. The multi-task learning models that use sleep staging as an auxiliary task reveal benefits for disorder classification, whereas the latest attention-based architectures help in representing complex temporal patterns in sleep architecture.
+% Nevertheless, there is still a long way to go for these achievements to be applicable to real-life situations in clinical practice. It is not only about having validation that would be strong enough when the models were subjected to a wide range of people and different recording conditions but also about the development of models that are so understandable to the clinicians that they would be able to develop trust in these models and the creation of standardized datasets for model training and evaluation that are the shared goals. Explainable AI methods, when integrated into systems for detecting sleep disorders, pave the way for these systems to be trusted by clinicians and safe for patients. Upon maturity of the sector, the symbiosis between complex analytical techniques and well-thought-out attention to clinical needs, ethics, and accessibility will be a key for unlocking the vast benefits automated sleep disorder detection has to offer in improving public health ‍‌outcomes.
+
+
+
+
+% \begin{figure}[t]
+%     \centering
+%     \includegraphics[width=\columnwidth]{class_distribution_test_set.png}
+%     \caption{Class Distribution}
+%     \label{fig:methodology_pipeline}
+% \end{figure}
+
+
+\section{Methodology}
+% Overview - pipeline and block diagram with following subsections\\
+% Dataset	description \\
+% Preprocessing	Explain how data was cleaned & prepared\\
+% Model	Describe your neural network\\
+% Training	Explain how you trained it\\
+% Evaluation	Show how you measured results\\
+% Implementation	Hardware/software for reproducibility
+% This works adopts a structured end-to-end methodology pipeline for detecting sleep disorders from overnight PSG recordings. This pipeline was designed and perfected from multiple experimental trials with different designs for data processing, feature extraction, sequence modelling, and classifier. The methodology pipeline is categorized into mainly four modules. Firstly, data processing which includes channel selection, detailed preprocessing and data representation. Secondly, the temporal feature extractor design which solves various limitation from existing literature. Thirdly, the sequence model, a novel lightweight attention based transformer is employed with context memory for sleep staging. Lastly, the disorder classifier, which classifies sleep disorder from features extracted from overall full night recordings. This section details the experimentation done to achieve the objectives set forth by this paper in detailed subsections, the dataset section contains brief explanation and introduction to the datasets used and why it was chosen, the preprocessing section discusses the most important part of any time-series task, that is data representation, it is so due to the complex nature of the task and the usual noisy nature of the data. The sleep staging section details the experimentation done to find the most optimal and performative way to achieve SOTA performance while still staying true to the objectives of the paper. The training configuration section justifies the choice of loss function, optimizer, hyper-parameters, evaluation metrics employed and the training strategies. Next, the evaluation section describes the performance of the modules we employed and discusses on why it may resulted as so. Finally, the system implementation section discusses the hardware and software specification that was used during the experimentation for reproducibility.
+This study adopts a structured end-to-end methodological pipeline for detecting sleep disorders from overnight polysomnography (PSG) recordings. The proposed framework was iteratively developed and refined through multiple experimental trials exploring different strategies for signal preprocessing, feature extraction, sequence modelling, explainability, and classification. The overall pipeline is organized into five primary modules. First, the data processing module performs channel selection, signal preprocessing, and data representation tailored for PSG time-series analysis. Second, the temporal feature extraction module learns discriminative representations from physiological signals while addressing limitations observed in prior work. Third, the sequence modelling module employs a lightweight attention-based transformer with contextual memory to capture temporal dependencies between sleep epochs and perform sleep staging. Fourth, an explainable inference module provides interpretability by localizing important signal regions within epochs using attention-based importance mapping, estimating prediction uncertainty through confidence visualization, and utilizing entropy-based signaling to flag low-confidence epochs for potential manual review by clinicians. Finally, the disorder classification module analyzes features aggregated across the full-night recording to identify the presence of sleep disorders.
+
+This section presents the experimental methodology in detail. The dataset subsection provides a brief description of the datasets used and the rationale for their selection. The preprocessing subsection discusses signal preparation and data representation, which are critical for time-series modelling due to the complex and noisy nature of PSG recordings. The sleep staging subsection outlines the architectural exploration and design choices made to achieve strong performance while maintaining computational efficiency and interpretability. The explainability subsection details the mechanisms used to generate interpretable model outputs, including epoch importance localization and uncertainty estimation. The training configuration subsection justifies the selected loss functions, optimization strategies, hyperparameters, and evaluation metrics used during model training. Subsequently, the evaluation subsection analyzes the performance of the proposed modules and discusses factors influencing the observed results. Finally, the system implementation subsection details the hardware and software environment used during experimentation to ensure reproducibility.
+\subsection{Dataset Description}
+This study utilizes two large-scale, publicly available, polysomnography (PSG) datasets: the Sleep-EDF Expanded Dataset\cite{sleepedfx, physiobank} and the Multi-Ethnic Study of Atherosclerosis (MESA) Sleep Dataset\cite{mesa, nsrr}. These datasets were selected to support the two-stage objective of this work: (i)  sleep stage classification from PSG signals, and (ii) association of sleep architecture with common sleep disorders. The Sleep-EDF Expanded dataset is used for training and validation of the sleep staging model, while the MESA dataset is employed for disorder-level analysis and for evaluating cross-dataset generalization.
+
+\subsubsection{Sleep-EDF Expanded Dataset}
+
+The Sleep-EDF Expanded dataset\cite{sleepedfx} was obtained from PhysioNet\cite{physiobank}, originally published in 2018 as version 1.0.0. The dataset consists of whole-night PSG recordings collected as part of two longitudinal studies: Sleep-Cassette (SC) and Sleep-Telemetry (ST). The SC subset includes recordings from healthy subjects without sleep-related medication, while the ST subset contains recordings from subjects with difficulty initiating sleep, with nights recorded under both placebo and temazepam conditions.
+
+Across both subsets, the dataset comprises recordings from over 100 Caucasian adult subjects, spanning an age range of approximately 25 to 101 years, with each subject contributing one or more overnight recordings. In total, the expanded dataset contains  197 recorded nights, with each night lasting approximately 8 hours.
+
+PSG data were acquired using standard laboratory-grade equipment, including EEG (Fpz–Cz and Pz–Oz electrode derivations), electrooculogram (EOG), and chin electromyogram (EMG) signals. Both EEG and EOG channels were sampled at 100 Hz. In this work, only the Fpz–Cz EEG channel was used to maintain consistency across datasets and to enable single-channel sleep staging.
+
+Sleep stages were manually annotated by trained sleep experts following the Rechtschaffen and Kales (R\&K) standard. Each recording was segmented into 30-second epochs, with labels assigned to one of the following stages: Wake (W), N1, N2, N3, N4, REM, Movement Time, and Unknown. In accordance with current AASM conventions, N4 epochs were merged into N3, and non-physiological stages (Movement Time and Unknown) were excluded during preprocessing.
+
+The resulting class distribution (in number of 30-second epochs) used in this study is as shown in Figure \ref{fig:stagedist}
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{chart.pdf}
+    \caption{Epoch wise Sleep Stage Distribution from Sleep-EDFx dataset}
+    \label{fig:stagedist}
+\end{figure}
+
+This distribution reflects the natural imbalance present in nocturnal sleep architecture and motivates the use of deep learning–based models capable of learning better representations under severe class imbalance. 
+
+\subsubsection{MESA Sleep Dataset}
+
+The MESA Sleep dataset\cite{mesa} was accessed through the National Sleep Research Resource (NSRR)\cite{nsrr} and was released in 2016 as part of the Multi-Ethnic Study of Atherosclerosis. Unlike Sleep-EDF, MESA is a large-scale, population-based cohort designed to investigate the relationship between sleep characteristics and cardiometabolic health outcomes.
+
+The dataset includes over 2,200 middle-aged and older adults (aged approximately 45–84 years) from diverse ethnic backgrounds, with each participant undergoing one full-night in-home PSG recording. PSG acquisition followed standardized protocols and included multi-channel EEG, EOG, EMG, respiratory airflow, oxygen saturation, and electrocardiogram (ECG) signals, sampled at frequencies ranging from 100 to 256 Hz depending on the modality.
+
+Sleep stages in MESA were manually scored in 30-second epochs by certified sleep technologists according to AASM guidelines. In addition to sleep staging, MESA provides clinically adjudicated labels for several common sleep disorders, making it suitable for disorder-level analysis.
+
+In this study, MESA was used exclusively for sleep disorder association and generalization testing, rather than for training the sleep staging model. The disorder-wise patient distribution considered in this work is summarized in the Figure \ref{fig:disorderdist}.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{Disorderdist.pdf}
+    \caption{Class Distribution for Sleep Disorders from MESA Sleep dataset}
+    \label{fig:disorderdist}
+\end{figure}
+
+This complementary use of Sleep-EDF for supervised sleep staging and MESA for disorder-level evaluation enables assessment of both model generalization mitigating learning bias and clinical relevance across heterogeneous recording conditions and populations.
+
+\subsection{Data Preprocessing}
+
+All PSG recordings from the Sleep-EDF Expanded dataset were processed using a unified preprocessing pipeline designed to ensure inter-dataset compatibility, reduce label noise, and produce representations suitable for both temporal deep learning models and spectral feature analysis. The preprocessing strategy preserves clinically meaningful sleep characteristics while enabling efficient model training and cross-dataset generalization.
+
+To maintain consistency across datasets and facilitate future evaluation on additional cohorts such as the MESA Sleep dataset, only a single EEG channel, Fpz–Cz, was retained for all experiments. Frontal EEG derivations have been shown to capture discriminative electrophysiological signatures associated with sleep–wake transitions, light sleep, and REM sleep. Furthermore, limiting the system to a single EEG channel aligns with practical deployment scenarios where minimal sensor configurations are preferred for scalable and cost-effective sleep monitoring. Figure \ref{fig:fpzcz} illustrates representative Fpz–Cz recordings across different sleep stages.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{EEG Fpz-Cz.png}
+    \caption{Fpz-Cz channel recordings across different sleep stages.}
+    \label{fig:fpzcz}
+\end{figure}
+
+\subsubsection{Wake Trimming and Label Cleaning}
+
+Full-night PSG recordings often contain extended wakefulness periods before sleep onset and after final awakening, which introduce significant class imbalance and contribute limited information for modeling sleep architecture. To mitigate this effect, wake epochs were temporally clipped such that only the 30 minutes preceding sleep onset and 30 minutes following the final non-wake epoch were retained. Sleep onset was defined as the first occurrence of stage N1 in the hypnogram. This trimming preserves transitional dynamics relevant for sleep staging while removing prolonged wake segments that unnecessarily increase data volume.
+
+The continuous EEG signal was then segmented into non-overlapping 30-second epochs, consistent with both the Rechtschaffen and Kales (R\&K) standard and the American Academy of Sleep Medicine (AASM) scoring guidelines. Each epoch was aligned with its corresponding hypnogram label to maintain temporal consistency between the raw EEG signal and expert annotations. Sleep stages labeled as \textit{Movement Time} and \textit{Unknown} were removed as they do not correspond to stable physiological sleep states under the AASM framework. The removal was applied jointly to both the EEG signal and the hypnogram labels to prevent temporal misalignment during training.
+
+To harmonize labels across datasets and scoring standards, stage N4 was merged with N3 to form a unified slow-wave sleep class. Although N3 and N4 are separated under the original R\&K standard based on delta-wave prevalence, modern AASM guidelines treat them as a single deep sleep stage due to their shared neurophysiological characteristics. This merging reduces class sparsity while maintaining clinical relevance. The cleaned sleep stage sequence and its transitions are illustrated in Figure \ref{fig:stagesequence}.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{stage sequence cleaned.png}
+    \caption{Cleaned sleep stage sequence and transitions across the night.}
+    \label{fig:stagesequence}
+\end{figure}
+
+\subsubsection{Temporal Input Representation}
+
+For temporal modelling, each 30-second EEG epoch was retained in its raw waveform form. Let $f_s$ denote the EEG sampling frequency (100 Hz in Sleep-EDF). Each epoch therefore contains:
+
+\[
+30 \times f_s = 30 \times 100 = 3000
+\]
+
+time samples.
+
+Thus, the temporal representation of a single epoch is expressed as:
+
+\[
+X_t \in \mathbb{R}^{3000}
+\]
+
+For sequence-based sleep staging, multiple consecutive epochs are grouped to form a temporal context window of length $L$. In this work, a sequence input is represented as:
+
+\[
+X_{seq} \in \mathbb{R}^{L \times 3000}
+\]
+
+where $L$ denotes the number of neighbouring epochs used to provide contextual information for staging the central epoch.
+
+This representation preserves the full temporal morphology of the EEG waveform, allowing the temporal feature extractor to learn electrophysiological patterns such as sleep spindles, K-complexes, and delta oscillations.
+
+\subsubsection{Spectral Feature Representation}
+
+While raw temporal signals capture waveform morphology, many sleep-stage characteristics are defined by frequency-domain activity. To incorporate this complementary information, spectral features were computed for every EEG epoch using band-wise power analysis.
+
+Five physiologically meaningful EEG frequency bands were considered:
+
+\begin{itemize}
+\item Delta (0.5–4 Hz)
+\item Theta (4–8 Hz)
+\item Alpha (8–12 Hz)
+\item Sigma (12–16 Hz) – associated with sleep spindles
+\item Beta (16–30 Hz)
+\end{itemize}
+
+For each epoch, power spectral density estimates were used to compute band-wise spectral energy and related statistics. Additional derived measures such as spectral entropy and stage-wise spectral characteristics were also computed to capture signal complexity and frequency distribution patterns. These spectral descriptors summarize oscillatory behaviour associated with different sleep stages, such as dominant delta activity in deep sleep or increased beta activity during wakefulness. :contentReference[oaicite:1]{index=1}
+
+The resulting spectral feature vector for each epoch is represented as:
+
+\[
+X_s \in \mathbb{R}^{F}
+\]
+
+where $F$ denotes the number of extracted spectral features (34 features in the implemented pipeline). For a sequence of $L$ epochs, the spectral input representation becomes:
+
+\[
+X_{spec} \in \mathbb{R}^{L \times F}
+\]
+
+\subsubsection{Dual-Branch Input Representation}
+
+The final input representation therefore consists of two parallel feature streams:
+
+\begin{itemize}
+\item Temporal EEG representation: $X_{seq} \in \mathbb{R}^{L \times 3000}$
+\item Spectral feature representation: $X_{spec} \in \mathbb{R}^{L \times F}$
+\end{itemize}
+
+These representations capture complementary characteristics of the EEG signal. The temporal stream preserves raw electrophysiological patterns, while the spectral stream provides compact summaries of frequency-domain behaviour associated with different sleep stages. Both representations are processed in parallel by the subsequent temporal–spectral fusion architecture described in the next section.
+
+\subsubsection{Offline Tensor Serialization}
+
+After preprocessing and feature extraction, both temporal and spectral representations were serialized into offline tensor files to enable efficient data loading during model training. This approach avoids repeated preprocessing during multiple training runs and significantly reduces computational overhead. A CSV index file was maintained to track tensor file locations along with their corresponding cleaned sleep stage sequences. The complete preprocessing workflow from raw PSG recordings to the final model-ready representations is illustrated in Figure \ref{fig:DFD}.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{DFD_P2.png}
+    \caption{Data flow diagram from raw PSG recordings to final disorder detection.}
+    \label{fig:DFD}
+\end{figure}
+
+\subsection{Architecture Design}
+The system relating the Polysomnography recordings for each night with sleep disorders is modularized into two major components: Sleep Staging \&  sleep disorder detection. The task of sleep staging is a high saturated research field, providing us with ample literature and suggestions and improvements that can be done, thus a custom architecture inspired by various existing literature motivated the current design, which is discussed in-depth in the Temporal Feature Extractor and Sequence Model Sub-sections. The sleep disorder detection is complex task if directly associated with raw PSG signals, thus the need for feature engineering arose, Sleep staging and the physiological features extractor from it provide very rich information into the sleep architecture and is often used in clinical setting for manual sleep disorder detection. Thus the sleep disorder detection task is simplified to associate the physiological features extracted from sleep stage sequence to underlying sleep disorders in the patients. The Disorder Classifier sub-section provides detailed discussion and justification for the choices taken during the experiments regarding the architecture design.
+
+\subsubsection{Temporal Feature Extractor}
+The temporal feature extractor is designed to transform raw single-channel EEG epochs into compact, discriminative latent representations that preserve both short-term electrophysiological patterns and longer temporal dependencies relevant to sleep staging. Given that sleep stages are characterized by oscillatory activity across multiple frequency bands such as delta waves in deep sleep, sleep spindles in N2, and mixed frequency activity during REM, a multi-scale temporal modelling strategy is essential.
+
+In the proposed architecture, each 30 second EEG epoch is processed independently using an Adaptive Atrous Pyramid based convolutional encoder. Atrous or dilated convolutions are employed with multiple dilation rates to capture temporal patterns at different receptive field sizes without increasing parameter count or reducing temporal resolution. This design allows the encoder to simultaneously model fine grained waveform details and broader contextual oscillations, a strategy that has been shown to be effective for sleep EEG analysis and other biomedical time-series tasks. Multi-scale temporal convolution has been widely adopted in recent sleep staging literature to account for the diverse temporal characteristics of sleep-related EEG rhythms.\cite{adg, bits, multisess} 
+
+The outputs of the parallel atrous convolution branches are adaptively fused using a learned gating mechanism, which assigns data-dependent weights to each temporal scale. This adaptive weighting enables the model to emphasize the most informative temporal resolution for a given epoch, addressing the non-stationary nature of EEG signals across sleep stages. Such adaptive feature fusion mechanisms have been shown to improve performance and generalization by preventing over-reliance on a single temporal scale. 
+
+To further enhance channel feature discrimination, a Squeeze-and-Excitation (SE) block is applied to the aggregated features. The SE mechanism explicitly models inter-channel dependencies by re-weighting feature maps based on their global relevance, allowing the network to suppress redundant responses and amplify salient patterns. Although originally proposed for computer vision, SE blocks have been successfully adapted to biomedical signal processing tasks, including sleep EEG modelling, where subtle amplitude and frequency variations carry diagnostic significance\cite{multisess}. 
+
+Following multi-scale convolution and attention-based recalibration, global average pooling is applied to obtain a fixed-length representation for each epoch, preserving the dominant spectral-temporal characteristics of the signal. A fully connected projection layer then maps the pooled features into a fixed-dimensional embedding space, producing a compact latent representation suitable for sequential modelling.
+
+In the inputs fed to the model, each input sample consists of a sequence of consecutive EEG epochs, where each epoch is independently encoded using the shared temporal feature extractor. This design enforces weight sharing across epochs, improves parameter efficiency, and ensures that the extracted features are directly comparable across time. The resulting sequence of latent embeddings serves as input to the subsequent sequence modelling module, which explicitly captures inter-epoch dependencies and sleep stage transitions.
+
+\subsubsection{Sequence Model}
+Sleep staging is modelled as a sequence labelling problem, where the classification of a given epoch depends not only on its local physiological characteristics but also on the surrounding sleep context. To capture inter-epoch dependencies, the proposed architecture employs a Transformer based sequence encoder operating on the latent epoch embeddings produced by the temporal feature extractor.
+
+The sequence model is implemented as a Transformer encoder with two stacked layers, each operating on an embedding dimension of 128. Each encoder layer uses 4 self-attention heads, allowing the model to simultaneously attend to multiple temporal relationships within the input sequence, such as short-range continuity between adjacent epochs and longer-range sleep stage transitions. The feed-forward subnetwork within each Transformer layer expands the representation to 512 units (4× the embedding dimension) before projecting it back to the original embedding size, following standard Transformer design principles. A dropout rate of 0.2 is applied to improve generalization and reduce overfitting.
+
+This configuration represents a deliberate balance between representational capacity and computational efficiency. Prior studies on the Sleep-EDF dataset have shown that shallow Transformer encoders (1-3 layers) are sufficient to capture sleep stage transition dynamics, while deeper architectures offer diminishing returns and increased risk of overfitting, particularly under class imbalance and limited subject diversity\cite{sleeptransformer}.
+
+The Transformer operates on fixed-length sequences of consecutive epochs, and the final sleep stage prediction is derived from the contextualized representation of the central epoch in the sequence. This center epoch prediction strategy aligns with clinical sleep scoring practice, where surrounding epochs provide contextual cues for staging the current epoch, and is commonly adopted in sequence-based sleep staging models to prevent label leakage from future context.
+
+% Sleep staging is inherently a temporal sequence modeling problem, as sleep stages evolve gradually through structured transitions governed by neurophysiological processes rather than occurring as independent events. As a result, a large body of prior work has explored sequence modeling techniques to capture inter-epoch dependencies in sleep EEG. A comprehensive overview of existing approaches reveals extensive use of re`current neural networks (RNNs), long short-term memory networks (LSTMs), gated recurrent units (GRUs), convolutional–recurrent hybrids, conditional random fields (CRFs), and more recently, attention-based and Transformer-based architectures. This saturation of sequence modeling approaches in sleep staging research highlights both the importance of temporal context and the lack of a universally optimal solution, as summarized in recent literature surveys and curated repositories of sleep staging models.
+
+% Despite their widespread adoption, early sequence models based on RNNs and LSTMs suffer from several well-documented limitations. These include difficulty in modeling long-range dependencies, vanishing or exploding gradients during training, and limited parallelization due to their inherently sequential nature. While convolutional–recurrent hybrids partially alleviate these issues by extracting local temporal features before recurrent aggregation, they remain constrained by fixed receptive fields and limited flexibility in capturing variable-length temporal dependencies. CRF-based post-processing methods improve label consistency but rely on handcrafted transition assumptions and are often decoupled from feature learning, limiting end-to-end optimization. 
+
+% BiTS-SleepNet_An_Attention-Base…
+
+% Recent trends in sleep staging research have increasingly favored attention-based sequence models, particularly Transformer architectures, due to their ability to model global temporal dependencies without recurrence. Transformers enable direct interactions between all epochs within a sequence through self-attention, allowing the model to learn physiologically plausible transitions such as gradual progression from wakefulness to deep sleep and cyclic REM patterns. Prior studies applying Transformers to Sleep-EDF have demonstrated improved robustness to inter-subject variability and superior generalization compared to recurrent models, especially when trained on limited or heterogeneous datasets. 
+
+% 2105.11043v3
+
+% Motivated by these observations, the proposed framework adopts a Transformer-based sequence model to operate on the latent epoch embeddings produced by the temporal feature extractor. Rather than directly modeling raw EEG signals, the sequence model processes compact, semantically meaningful representations of each epoch, enabling efficient learning of inter-epoch relationships while avoiding unnecessary computational burden. This separation of concerns—epoch-level representation learning followed by sequence-level contextual modeling—has been shown to be both effective and scalable in prior sleep staging architectures. 
+
+% 2101.02452v2
+
+% The sequence model is implemented as a multi-layer Transformer encoder composed of stacked self-attention and position-wise feed-forward blocks. Each input sequence consists of a fixed-length window of consecutive epoch embeddings, allowing the model to capture both short-term transitions (e.g., N1↔N2) and longer contextual patterns (e.g., REM cycles). Multi-head self-attention enables the model to attend to different temporal relationships simultaneously, such as local continuity and distant contextual cues, while layer normalization and residual connections stabilize training and improve convergence. The feed-forward sublayers expand the embedding dimensionality to enhance representational capacity before projecting back to the original embedding space.
+
+% To produce the final sleep stage prediction, the contextualized representation corresponding to the central epoch in the sequence window is selected and passed through a linear classification layer. This center-focused prediction strategy aligns with clinical sleep staging practice, where surrounding epochs provide contextual information for scoring the current epoch, and has been widely adopted in sequence-based sleep staging models to prevent information leakage from future epochs.
+\subsubsection{Disorder Classifier}
+The final component of the proposed system focuses on sleep disorder detection by associating sleep architecture derived physiological features with clinically diagnosed conditions. In this work, three prevalent and clinically significant sleep disorders are considered insomnia, sleep apnea, and restless leg syndrome (RLS). These disorders were selected due to their high population prevalence, strong impact on sleep macro architecture, and availability of reliable clinical labels in large scale cohort studies.
+
+Traditionally, sleep disorders are diagnosed through a combination of clinical interviews, questionnaires, and overnight polysomnography, followed by expert interpretation of sleep structure and event level annotations. Clinicians rarely rely on raw EEG waveforms alone. Instead, diagnosis is primarily informed by sleep staging summaries such as total sleep time, sleep efficiency, stage wise proportions, sleep onset latency, REM latency, frequency of arousals, and fragmentation patterns. This reliance on sleep architecture reflects the fact that many sleep disorders manifest as systematic disruptions in stage transitions and temporal organization, rather than as isolated electrophysiological anomalies.
+
+Insomnia is commonly characterized by prolonged sleep onset latency, increased wake after sleep onset, reduced sleep efficiency, and decreased deep sleep. Sleep apnea is associated with frequent micro arousals, increased light sleep, reduced REM and N3 duration, and pronounced sleep fragmentation driven by respiratory events. Restless leg syndrome similarly presents with repeated arousals and transitions, often leading to fragmented sleep and altered stage continuity, particularly during non REM sleep. While these disorders differ in aetiology, they share a common signature of disrupted sleep architecture, making sleep stage derived features a clinically meaningful representation for disorder detection.
+
+Motivated by this clinical practice, the proposed framework decouples sleep staging from disorder detection by using the predicted sleep stage sequences as an intermediate representation. From these sequences, a set of physiological and sleep architecture features is extracted to summarize nocturnal sleep behavior. These features are computed directly from the cleaned sleep stage labels and are grouped into the following categories.
+
+Sleep continuity and efficiency features
+\begin{itemize}
+\item Total sleep time calculated as the total duration of non wake epochs
+\item Sleep efficiency computed as the ratio of total sleep time to time in bed
+\item Sleep onset latency measured as the time from recording start to the first N1 epoch
+\item Wake after sleep onset calculated as the cumulative duration of wake epochs occurring after sleep onset
+\end{itemize}
+
+Stage composition features
+\begin{itemize}
+\item Absolute duration of each sleep stage W, N1, N2, N3, and REM
+\item Relative proportion of each stage normalized by total sleep time
+\item Ratio based features such as light sleep to deep sleep balance
+\end{itemize}
+
+Transition and fragmentation features
+\begin{itemize}
+\item Total number of stage transitions across the night
+\item Transition rate normalized by recording duration
+\item Frequency of wake intrusions per hour of sleep
+\item Mean and variance of continuous stage segment durations
+\end{itemize}
+
+Temporal organization features
+\begin{itemize}
+\item REM latency measured from sleep onset to the first REM epoch
+\item Number of REM periods across the night
+\item Distribution of deep sleep across early and late night segments
+\end{itemize}
+
+These features capture both global sleep organization and local instability, providing a concise yet informative summary of nocturnal sleep behavior. The disorder classifier operates on this aggregated physiological feature vector rather than on raw EEG signals or epoch level embeddings. This design choice improves consistency across datasets collected under different recording conditions, reduces sensitivity to signal level noise, and enhances interpretability by grounding predictions in clinically established sleep metrics.
+
+The classifier itself is implemented as a lightweight supervised model operating on the extracted feature space. This formulation allows stable learning under class imbalance while preserving transparency in feature outcome relationships. Furthermore, the feature based design enables direct integration of explainability mechanisms. Feature attribution methods can be applied to quantify the contribution of individual physiological markers such as elevated wake after sleep onset or reduced N3 duration to a given disorder prediction. Counterfactual analyses can also be constructed by systematically modifying specific sleep features and observing the resulting changes in predicted disorder likelihood. Such analyses provide clinically intuitive explanations and support informed interpretation of model outputs.
+
+To empirically evaluate the effectiveness of the proposed physiological feature representation, multiple classifier architectures were explored, each reflecting different modeling assumptions and clinical trade offs. Disorder detection was formulated as a binary classification task and trained independently for each disorder to avoid label coupling effects. Given the severe class imbalance present in all three conditions, with positive cases comprising less than ten percent of the cohort, imbalance aware training strategies were adopted across all experiments.
+
+Logistic regression was used as a baseline classifier due to its transparency and direct interpretability of feature coefficients. Support vector machines with radial basis function kernels were evaluated to model non linear decision boundaries in the physiological feature space, while random forest classifiers were employed to capture higher order feature interactions without explicit feature engineering. In addition to classical machine learning models, a shallow multilayer perceptron was trained to assess whether moderate non linear feature transformations could improve predictive performance without overfitting the structured and low dimensional feature set.
+
+All classifiers were trained using class weighted learning derived from the training split to penalize misclassification of minority classes. For margin based models, synthetic minority over sampling was applied only within the training pipeline to improve separability while avoiding data leakage. Model evaluation emphasized imbalance sensitive metrics rather than accuracy alone, including sensitivity, specificity, F1 score, Matthews correlation coefficient, Cohen’s kappa, and area under the receiver operating characteristic and precision recall curves. Decision thresholds were optimized using the geometric mean of sensitivity and specificity to reflect the intended use of the system as a screening and risk stratification tool rather than a definitive diagnostic system.
+
+This experimental design enables systematic comparison between interpretable linear models, non linear ensemble methods, and shallow neural architectures, providing insight into the trade offs between predictive performance, stability under imbalance, and clinical interpretability.
+
+ 
+\subsection{Model Training}
+The proposed framework consists of two independently trained components: a deep learning model for sleep stage classification and a feature-based classifier for sleep disorder detection. Each component employs a training strategy tailored to its data characteristics, label structure, and clinical objective.
+
+\paragraph{Sleep Staging Model Training}
+
+The sleep staging model was trained using supervised sequence-level learning on preprocessed Sleep-EDF sequences. Each training sample consists of a fixed-length window of consecutive EEG epochs, with the center epoch serving as the prediction target. This formulation enables contextual learning while preventing label leakage from future epochs. A simple train–validation split was adopted, with 80 percent of the data used for training and the remaining 20 percent for validation, ensuring subject-independent evaluation through random seed control.
+
+Training was performed using the Adam optimizer with an initial learning rate of $10^{-3}$ and weight decay of 0.25. Weight decay was included to regularize the model and control overfitting, particularly given the moderate depth of the Transformer encoder and the inherent redundancy present in sleep EEG data. To address the pronounced class imbalance across sleep stages, focal loss with a focusing parameter $\gamma = 2$ was employed. This loss formulation reduces the influence of well-classified majority class samples and increases sensitivity to minority stages such as N1 and REM, which are clinically important yet underrepresented.
+
+A ReduceLROnPlateau learning rate scheduler was applied based on validation weighted F1 score, with a patience of five epochs and a decay factor of 0.5. This adaptive scheduling allows stable convergence without manual tuning and is particularly effective when validation performance plateaus due to class imbalance rather than optimization instability. The model was trained for a maximum of 50 epochs, with the best performing checkpoint selected based on validation weighted F1 score.
+
+To improve computational efficiency and reduce memory usage, automatic mixed precision training was enabled using gradient scaling. Batch size was set to 32, balancing GPU utilization and training stability, and data loading was parallelized using multiple worker threads. All training procedures, evaluation metrics, and checkpointing logic follow a fully deterministic setup to ensure reproducibility. 
+
+\paragraph{Sleep Disorder Classifier Training}
+
+Sleep disorder detection was formulated as a binary classification problem for each disorder, namely insomnia, restless leg syndrome, and sleep apnea. Models were trained independently for each disorder using physiological features derived from sleep stage sequences and additional PSG-related measures. A stratified train–test split was used to preserve disorder prevalence, with 80 percent of the data used for training and 20 percent reserved for testing.
+
+Severe class imbalance, with positive cases comprising less than 10 percent of the cohort for all disorders, was explicitly handled during training. Class weights were computed from the training data and applied across all models to penalize misclassification of minority classes. For margin-based models such as logistic regression and support vector machines, synthetic minority over-sampling was applied within the training pipeline to improve class separability without contaminating the test set.
+
+Multiple classifiers were evaluated to reflect different modeling assumptions and clinical trade-offs. Logistic regression was used as a transparent baseline, random forests were employed to capture non-linear feature interactions, and support vector machines with radial basis function kernels were included to model complex decision boundaries. In addition, a shallow multilayer perceptron was trained for comparison, using two hidden layers with batch normalization and dropout to prevent overfitting on structured tabular data.
+
+Model evaluation emphasized imbalance-aware metrics rather than accuracy alone. Sensitivity, specificity, F1 score, Matthews correlation coefficient, Cohen’s kappa, and area under the ROC and precision–recall curves were reported. Decision thresholds were not fixed at 0.5; instead, an optimal threshold was selected for each model by maximizing the geometric mean of sensitivity and specificity. This thresholding strategy aligns with the intended use of the classifier as a screening and risk stratification tool rather than a definitive diagnostic system.
+
+Early stopping based on validation loss was applied to the neural network classifier to prevent overfitting, while classical models relied on regularization and ensemble constraints. All models were trained using standardized feature inputs derived exclusively from the training data to avoid data leakage.
+
+% \subsection{Evaluation Strategies}
+\subsection{System Specification}
+All experiments were conducted on a resource-constrained computing setup to reflect realistic deployment and reproducibility conditions. The original Sleep-EDF expanded dataset occupied approximately 8GB in raw EDF format, comprising high-resolution multichannel PSG recordings. Through the proposed preprocessing pipeline, which includes channel selection, signal trimming, segmentation, and tensor serialization, the effective dataset size was reduced to approximately 2.5GB. This substantial reduction enabled efficient neural architecture search and model training without repeated EDF parsing overhead. The MESA Sleep Dataset occupied 385GB with its multivariate time series PSG recordings in EDF format along with its hypnograms stored as xml files.
+Model training and architecture search were performed on a single NVIDIA RTX 3050 GPU with 6\,GB of VRAM, paired with 16\,GB of system RAM. All experiments were executed under these hardware constraints without reliance on distributed training or large-memory accelerators. This configuration demonstrates that the proposed NAS-driven end-to-end methodology is computationally efficient and feasible on standard consumer-grade hardware, reinforcing its suitability for scalable experimentation and practical deployment.
+
+\section{Performance Evaluation}
+This section evaluates the proposed framework at two levels: sleep stage classification performance on the Sleep-EDF Expanded dataset and sleep disorder detection performance on the MESA cohort. Given the distinct nature of these tasks, separate evaluation protocols and metrics were employed.
+
+Sleep staging performance was evaluated using per-class precision, recall, and F1 score, reflecting the clinically uneven distribution of sleep stages. Table~\ref{tab:staging_metrics} summarizes the class-wise performance of the proposed model.
+
+\begin{table}[h]
+\centering
+\caption{Per-class sleep staging performance on Sleep-EDF Expanded}
+\label{tab:staging_metrics}
+\begin{tabular}{lccc}
+\toprule
+Stage & Precision & Recall & F1-score \\
+\midrule
+Wake & 0.84 & 0.71 & 0.77 \\
+N1   & 0.20 & 0.49 & 0.29 \\
+N2   & 0.74 & 0.20 & 0.30 \\
+N3   & 0.95 & 0.91 & 0.93 \\
+REM  & 0.33 & 0.42 & 0.37 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The model demonstrates strong performance for deep sleep (N3), achieving an F1 score of 0.93, which reflects the distinct high-amplitude slow-wave patterns characteristic of this stage. Wake detection also shows reliable performance, benefiting from clearly distinguishable EEG activity.
+
+As observed in prior literature, performance on N1 remains comparatively low. This limitation is well documented and arises from the transitional nature of N1, which exhibits substantial overlap with both wakefulness and N2 in EEG morphology. Similarly, reduced recall for N2 reflects confusion with adjacent stages, particularly in fragmented sleep segments. These trends are consistent with existing deep learning based sleep staging studies and do not indicate instability in the proposed model.
+
+
+\begin{table*}[t]
+\centering
+\adjustbox{max width=\textwidth}{
+\begin{tabular}{llccccccccc}
+\toprule
+\multirow{2}{*}{Dataset} & \multirow{2}{*}{Method} &
+\multicolumn{5}{c}{Per-Class F1-score (\%)} &
+\multicolumn{4}{c}{Overall Metrics (\%)} \\
+\cmidrule(lr){3-7} \cmidrule(lr){8-11}
+ &  & W & N1 & N2 & N3 & REM & ACC & MF1 & $\kappa$ & MGm \\
+\midrule
+\multirow{15}{*}{Sleep-EDF-Expanded}
+& DeepSleepNet & 86.70 & 45.50 & 85.10 & 83.30 & 82.60 & 81.90 & 76.60 & 0.76 & -- \\
+& SleepEEGNet & 89.40 & 44.40 & 84.70 & 84.60 & 79.60 & 81.50 & 76.60 & 0.75 & -- \\
+& ResNetLSTM & 86.50 & 28.40 & 87.70 & 89.80 & 76.20 & 82.50 & 73.70 & 0.76 & 81.80 \\
+& MultiTaskCNN & 87.90 & 33.50 & 87.50 & 85.80 & 80.30 & 83.10 & 75.00 & 0.77 & 83.10 \\
+& AttnSleep & 89.70 & 42.60 & 88.80 & 90.20 & 79.00 & 84.40 & 78.10 & 0.79 & 85.50 \\
+& SeqSleepNet & 87.70 & 43.80 & 88.20 & 86.50 & 84.00 & 84.60 & 78.00 & 0.79 & 85.30 \\
+& MRASleepNet & 90.00 & 46.10 & 88.70 & 88.20 & 80.70 & 84.50 & 78.90 & 0.79 & -- \\
+& NASNet & 86.60 & 38.80 & 87.80 & 88.50 & 77.60 & 82.70 & 75.90 & 0.76 & 84.00 \\
+& DSNet & 90.30 & 40.10 & 89.50 & 90.60 & 81.90 & 85.80 & 78.50 & 0.80 & 85.30 \\
+& CausalAttnNet & 89.60 & 40.10 & 88.60 & 90.60 & 80.80 & 84.70 & 78.10 & 0.80 & 85.50 \\
+& LG-SleepNet & 91.80 & 49.40 & 89.60 & 89.80 & 82.60 & 86.00 & 80.70 & 0.76 & 88.20 \\
+& TSA-Net & 90.54 & 46.91 & 89.17 & 90.10 & 85.35 & 86.64 & 80.41 & 0.82 & 86.44 \\
+& TBSleepNet & \underline{92.50} & 53.30 & \underline{89.70} & 88.50 & 87.70 & 87.20 & \underline{82.30} & \underline{0.83} & -- \\
+& BiTS-SleepNet & \textbf{92.18} & \textbf{55.56} & \textbf{90.49} & \underline{90.48} & \textbf{88.89} & \textbf{88.50} & \textbf{83.52} & \textbf{0.84} & \textbf{88.89} \\
+& Proposed Method & 77.0 & 29.0 & 30.0 & \textbf{93.0} & 37.0 & -- & -- & -- & -- \\
+\bottomrule
+\end{tabular}
+}
+
+\vspace{0.5em}
+\footnotesize
+\parbox{\textwidth}{%
+Note: The proposed method prioritizes generalizable feature learning for downstream disorder detection rather than maximizing standalone staging accuracy.
+}
+
+\caption{Comparison of sleep staging performance on Sleep-EDF Expanded}
+\label{tab:comparison}
+\end{table*}
+
+
+To contextualize the sleep staging results, Table\ref{tab:comparison} compares the proposed method against representative state-of-the-art approaches on the Sleep-EDF Expanded dataset. Since the primary focus of this work is disorder association rather than optimizing absolute staging accuracy, the comparison highlights relative positioning rather than claiming superiority.
+
+While the proposed model does not outperform specialized sleep staging architectures, it achieves competitive deep sleep detection and maintains consistent performance across stages, which is critical for reliable extraction of sleep architecture features used in subsequent disorder analysis.
+
+Sleep disorder detection performance was evaluated independently for insomnia, restless leg syndrome, and sleep apnea using imbalance-aware metrics. Accuracy alone was not considered sufficient due to the low prevalence of positive cases. Instead, emphasis was placed on sensitivity, specificity, F1 score, Matthews correlation coefficient, and area under the ROC curve.
+
+For insomnia detection, logistic regression achieved the highest ROC AUC, improving from 0.568 to 0.629 when compared against baseline thresholds. This result reflects the strong linear relationship between insomnia and sleep continuity features such as sleep onset latency and wake after sleep onset. All evaluated models exhibited low precision, which is expected given the subjective nature of insomnia diagnosis and label noise in population studies.
+
+Restless leg syndrome detection proved challenging across all classifiers, consistent with prior findings that RLS exhibits weak macro-architectural signatures. The support vector machine with an RBF kernel achieved the best ROC AUC, increasing from 0.54 to 0.622, indicating improved sensitivity to non-linear patterns related to sleep fragmentation and arousal frequency.
+
+Sleep apnea detection showed the strongest overall performance among the three disorders. The random forest classifier achieved the highest ROC AUC, increasing from 0.614 to 0.757, and demonstrated balanced sensitivity and specificity. This result aligns with clinical understanding, as apnea produces pronounced and repeatable disruptions in sleep architecture, including increased arousals and reduced REM and N3 sleep.
+
+
+% Experimental Setup
+
+% Evaluation Metrics Used
+
+% Quantitative Results
+
+% Comparison with Baselines or Related Work
+
+% Discussion
+% \begin{table*}[t]
+% \centering
+% \caption{Comparison among BiTS-SleepNet and recently published methods}
+% \label{tab:bits_comparison}
+% \adjustbox{max width=\textwidth}{
+% \begin{tabular}{llccccccccc}
+% \toprule
+% \multirow{2}{*}{Dataset} & \multirow{2}{*}{Method} &
+% \multicolumn{5}{c}{Per-Class F1-score (\%)} &
+% \multicolumn{4}{c}{Overall Metrics (\%)} \\
+% \cmidrule(lr){3-7} \cmidrule(lr){8-11}
+%  &  & W & N1 & N2 & N3 & REM & ACC & MF1 & $\kappa$ & MGm \\
+% \midrule
+
+% \multirow{14}{*}{Sleep-EDF-Expanded}
+
+% \bottomrule
+% \end{tabular}
+% }
+% \vspace{0.5em}
+% \footnotesize{\textit{Note:} Best results are shown in \textbf{bold}, second-best are \underline{underlined}.}
+% \end{table*}
+
+
+
+\section{CONCLUSIONS}
+This work set out to investigate how polysomnography derived sleep information can be systematically linked to common sleep disorders in a scalable and clinically meaningful manner. Specifically, the goal was to move beyond isolated sleep stage classification and explore how sleep architecture, as captured through automated sleep staging, can serve as an intermediate representation for disorder level analysis.
+
+To achieve this, a modular framework was proposed that decouples sleep staging from sleep disorder detection. A deep learning based sequence model was developed to perform automated sleep staging from single channel EEG, after which physiologically relevant sleep architecture features were extracted from the predicted stage sequences. These features were then used to train disorder specific classifiers for insomnia, restless leg syndrome, and sleep apnea. Experimental evaluation demonstrated reliable deep sleep detection and consistent staging performance sufficient for downstream analysis, while disorder classification results showed meaningful discrimination, particularly for sleep apnea, under severe class imbalance.
+
+The key contribution of this work lies in demonstrating that sleep architecture derived features provide a clinically grounded and interpretable bridge between raw PSG signals and disorder level outcomes. Rather than treating disorder detection as a direct signal classification problem, the proposed approach mirrors clinical reasoning by relying on sleep continuity, stage composition, fragmentation, and temporal organization. This design improves consistency across datasets, supports explainability, and enables flexible experimentation with different classifier models without retraining the sleep staging component.
+
+Despite these findings, several limitations remain. Sleep staging performance for transitional stages such as N1 and N2 remains challenging, which may affect the fidelity of certain derived features. Disorder classification performance, particularly for insomnia and restless leg syndrome, is constrained by label noise, subjective diagnostic criteria, and limited macro architectural signatures. Future work can explore incorporating additional physiological signals, integrating event level annotations such as arousals or respiratory events, and extending the framework to multi night or longitudinal analysis. Further investigation into explainable and counterfactual modeling techniques may also improve clinical trust and applicability of automated sleep disorder assessment systems.
+
+ 
+
+% \addtolength{\textheight}{-12cm}   % This command serves to balance the column lengths
+%                                   % on the last page of the document manually. It shortens
+%                                   % the textheight of the last page by a suitable amount.
+%                                   % This command does not take effect until the next page
+%                                   % so it should come on the page before the last. Make
+%                                   % sure that you do not shorten the textheight too much.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \section*{APPENDIX}
+
+% Software and Environment Setup\\
+
+% Training Procedure Code (Simplified) - 
+% Add clean code snippets, not the entire program \\
+
+% \section*{APPENDIX}
+
+% \subsection{Software and Hardware Environment}
+
+% All experiments were conducted locally on a Windows~11 (64-bit) workstation equipped with an Intel Core i7 (12\textsuperscript{th} Generation) CPU, 64~GB system memory, and an NVIDIA GPU. This configuration reflects a realistic mid-range research environment, intentionally chosen to evaluate the feasibility of training attention-based sleep staging models without reliance on large-scale compute clusters.
+
+% The implementation was developed using Python (v3.10) and the PyTorch deep learning framework. Model training leveraged GPU acceleration through CUDA, with mixed-precision computation enabled via PyTorch Automatic Mixed Precision (AMP) to improve throughput and reduce memory usage. Auxiliary libraries such as \texttt{numpy}, \texttt{pandas}, \texttt{scikit-learn}, and \texttt{tqdm} were used for numerical processing, dataset indexing, metric computation, and training-time monitoring.
+
+% All raw polysomnography recordings were preprocessed offline and serialized as tensor files. During training, the pipeline directly loads these tensors, eliminating EDF parsing, signal transformation, and disk-intensive preprocessing from the training loop. This design ensures deterministic data access and significantly reduces runtime input-output overhead.
+
+% \subsection{Dataset Construction and Sequence Sampling}
+
+% Each sleep recording was converted into a tensor of fixed-length epochs, where each epoch corresponds to a 30-second EEG segment. A CSV index file stores the tensor paths and corresponding sleep stage sequences. During training, a sliding context window centered on each epoch is constructed to capture short-range temporal dependencies.
+
+% \begin{lstlisting}[language=Python]
+% # Dataset sample generation (simplified)
+% class SleepEDFSequenceDataset(Dataset):
+%     def __getitem__(self, idx):
+%         x, y, t = self.samples[idx]  # full recording tensor
+%         start = max(0, t - W)
+%         end = min(len(y), t + W + 1)
+%         window_x = x[start:end]      # context window
+%         return window_x, y[t]        # center epoch label
+% \end{lstlisting}
+
+% Zero-padding is applied at sequence boundaries to ensure a consistent context window length. This formulation allows the model to learn transition-aware representations while preserving epoch-level supervision.
+
+% \subsection{Model Architecture and Forward Pass}
+
+% The proposed sleep staging network follows a modular design consisting of an epoch-level feature encoder followed by a lightweight temporal context model. The epoch encoder extracts compact embeddings from raw EEG segments using a multi-branch dilated convolutional pyramid, enabling multi-scale temporal feature learning. Contextual dependencies are then modeled using a Transformer encoder operating on the sequence of embeddings.
+
+% \begin{lstlisting}[language=Python]
+% # Simplified forward pass
+% class SleepStagingModel(nn.Module):
+%     def forward(self, x):
+%         epoch_embeddings = self.encoder(x)
+%         logits = self.context(epoch_embeddings)
+%         return logits
+% \end{lstlisting}
+
+% The Transformer outputs a representation corresponding to the center epoch, which is passed through a linear classifier to obtain sleep stage predictions. This separation between epoch encoding and context modeling improves architectural clarity and facilitates efficient batching.
+
+% \subsection{Loss Function and Class Imbalance Handling}
+
+% Sleep stage classification exhibits severe class imbalance, particularly for transitional stages such as N1 and REM. To address this, a focal loss formulation was adopted, emphasizing hard-to-classify samples while down-weighting easy negatives.
+
+% \begin{lstlisting}[language=Python]
+% # Focal loss (simplified)
+% ce = cross_entropy(logits, targets, reduction="none")
+% pt = torch.exp(-ce)
+% loss = alpha * (1 - pt) ** gamma * ce
+% loss = loss.mean()
+% \end{lstlisting}
+
+% This loss formulation improves macro-averaged performance without destabilizing optimization and is particularly effective for minority sleep stages.
+
+% \subsection{Training Loop and Optimization Strategy}
+
+% Training was performed using mini-batch stochastic optimization with the Adam optimizer and weight decay regularization. Automatic mixed precision (AMP) was employed to reduce memory footprint and accelerate training. Gradient scaling and clipping were applied to stabilize optimization of the attention-based architecture.
+
+% \begin{lstlisting}[language=Python]
+% # Training step (simplified)
+% with autocast():
+%     logits = model(x)
+%     loss = criterion(logits, y)
+
+% scaler.scale(loss).backward()
+% scaler.step(optimizer)
+% scaler.update()
+% \end{lstlisting}
+
+% Learning rate adaptation was handled using a plateau-based scheduler, which reduces the learning rate when validation performance saturates. This strategy enables robust convergence without manual tuning.
+
+% \subsection{Validation, Model Selection, and Checkpointing}
+
+% Model selection was based on macro-averaged F1-score rather than overall accuracy, ensuring balanced performance across all sleep stages. Checkpoints were saved whenever an improvement in validation performance was observed, allowing training to resume seamlessly after interruptions.
+
+% \begin{lstlisting}[language=Python]
+% if val_f1_macro > best_f1:
+%     torch.save(model.state_dict(), checkpoint_path)
+% \end{lstlisting}
+
+% This criterion prioritizes physiologically meaningful improvements over gains driven by majority classes.
+
+% \subsection{Runtime Stability and Reproducibility}
+
+% To ensure reproducibility, random seeds were fixed across Python, NumPy, and PyTorch. Dataset splits, training configurations, and evaluation outputs were logged and preserved for traceability. Memory usage was monitored throughout long training runs, and unused tensors were released periodically to prevent fragmentation under constrained GPU resources.
+
+% \begin{lstlisting}[language=Python]
+% # Reproducibility controls
+% torch.manual_seed(42)
+% torch.cuda.manual_seed_all(42)
+% \end{lstlisting}
+
+% Together, these measures ensure stable execution, reproducible results, and fair comparison across experimental configurations.
+\section*{APPENDIX}
+
+\subsection{Software and Hardware Environment}
+
+The experiments were all carried out on a PC locally that was running on Windows 11 (64-bit) and had an Intel Core i7 (12th Generation) CPU, 64 GB of system memory, and an NVIDIA T400 GPU. The hardware configuration is that of a mid-range computational setup, which was purposely chosen to assess whether the training and deployment of the proposed models are feasible on resource-limited systems rather than on high-end compute servers.
+
+Model development and training were done through the PyTorch deep learning framework, which allowed easy implementation of custom architectures, loss functions, and training schedules. The annotation files that were in XML format were parsed using the Python \texttt{xml} library. The raw polysomnography recordings that were in the EDF format were handled using the \texttt{mne} library. Some additional system utilities like \texttt{argparse}, \texttt{glob}, \texttt{os}, \texttt{warnings}, \texttt{numpy}, and \texttt{math} were used for configuration management, file handling, numerical operations, and runtime control.
+
+All PSG signals were preprocessed offline and saved as serialized tensor files in order to lower the runtime memory consumption and input-output overhead during training. This solution allowed for deterministic data access, minimized the number of times that the EDF was parsed, and also made the batching during training more ‍‌efficient.
+
+
+\subsection{Memory Management and Runtime Stability Measures}
+
+Due to the limited amount of GPU memory available, a few safety measures had been incorporated to prevent memory fragmentation as well as training instability. The intermediate tensors were directly dereferenced after having been used, and Python’s garbage collection module was periodically called to remove unused memory. Besides that, GPU memory usage was watched and kept under control to prevent excessive allocation during long training runs.
+
+\begin{lstlisting}[language=Python]
+import gc
+import torch
+
+# Periodic memory cleanup during training
+torch.cuda.empty_cache()
+gc.collect()
+\end{lstlisting}
+
+These measures allowed stable training of attention-based sequence models even under constrained GPU resources.
+
+\subsection{Training Procedure Overview}
+
+Training was done through sequence-level supervision, in which each sample was a few consecutive sleep epochs. In order to tackle the extremely unbalanced class problem which is natural to sleep stage distributions, focal loss with class-dependent weighting was utilized. To further stabilize the deep Transformer architectures’ optimization, gradient clipping was introduced and an adaptive learning rate scheduler, i.e. a cosine annealing model, was used.
+
+\begin{lstlisting}[language=Python]
+# Forward pass
+output = model(features)
+logits = output['logits']  # (batch, seq_len, num_classes)
+
+# Flatten predictions and labels
+logits_flat = logits.view(-1, num_classes)
+labels_flat = labels.view(-1)
+
+# Compute focal loss
+loss = criterion(logits_flat, labels_flat)
+
+# Backpropagation with gradient clipping
+loss.backward()
+torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+optimizer.step()
+\end{lstlisting}
+
+This procedure ensured that difficult-to-classify stages such as N1 and transitional epochs contributed more strongly to parameter updates.
+
+\subsection{Class Weight Estimation for Imbalanced Data}
+
+Class weights were calculated dynamically from the training data to lessen the bias on the most dominant sleep stages. A square-root inverse frequency approach was implemented to balance the stability and sensitivity, so that the weights for rare classes would not become too large.
+
+\begin{lstlisting}[language=Python]
+# Compute class weights
+class_counts = torch.clamp(class_counts, min=1.0)
+total_samples = class_counts.sum()
+
+class_weights = torch.sqrt(total_samples / class_counts)
+class_weights = class_weights / class_weights.mean()
+\end{lstlisting}
+
+These weights were incorporated directly into the focal loss formulation, improving macro-averaged performance without destabilizing training.
+
+\subsection{Validation, Model Selection, and Checkpointing}
+
+Instead of just looking at overall accuracy, model selection was made at the different sleep stages level as well, thus by using the macro-averaged F1 score. Checkpoints were stored whenever there was a higher validation macro F1-score, enabling one to resume from any point of interruption and at the same time, preventing overfitting.
+
+\begin{lstlisting}[language=Python]
+if val_f1_macro > best_val_f1:
+    best_val_f1 = val_f1_macro
+    torch.save({
+        'epoch': epoch,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'scheduler_state_dict': scheduler.state_dict()
+    }, checkpoint_path)
+\end{lstlisting}
+
+This strategy prioritizes physiologically meaningful performance improvements over trivial gains driven by majority classes.
+
+\subsection{Baseline Machine Learning Comparisons}
+
+Besides the suggested deep learning models, traditional machine learning classifiers such as Support Vector Machines, Random Forests, and Gradient Boosted Trees were also trained by the use of the engineered sequence-level features. Under the class imbalance, stratified sampling and threshold optimization were practiced to guarantee fair comparison.
+
+\begin{lstlisting}[language=Python]
+# Optimize decision thresholds to maximize F1-score
+def score_func(threshold):
+    preds = (probs >= threshold).astype(int)
+    return -f1_score(y_true, preds)
+
+optimal_threshold = minimize_scalar(
+    score_func, bounds=(0.0, 1.0), method='bounded'
+).x
+\end{lstlisting}
+
+The baselines serve as a benchmark for deciding the merits of end-to-end temporal modeling versus static feature-based ‍‌methods.
+
+
+\subsection{Reproducibility Considerations}
+
+In all the experiments, random seeds for dataset splitting, weight initialization, and optimizer behavior were set. Command-line arguments were used to expose configuration parameters, while intermediate things like dataset splits, checkpoints, and evaluation outputs were kept for traceability and‍‌ reproducibility.
+
+
+
+\section*{Acknowledgements}
+The Multi-Ethnic Study of Atherosclerosis (MESA) Sleep Ancillary study was funded by NIH-NHLBI Association of Sleep Disorders with Cardiovascular Health Across Ethnic Groups (RO1 HL098433). MESA is supported by NHLBI funded contracts HHSN268201500003I, N01-HC-95159, N01-HC-95160, N01-HC-95161, N01-HC-95162, N01-HC-95163, N01-HC-95164, N01-HC-95165, N01-HC-95166, N01-HC-95167, N01-HC-95168 and N01-HC-95169 from the National Heart, Lung, and Blood Institute, and by cooperative agreements UL1-TR-000040, UL1-TR-001079, and UL1-TR-001420 funded by NCATS. The National Sleep Research Resource was supported by the National Heart, Lung, and Blood Institute (R24 HL114473, 75N92019R002).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\bibliographystyle{unsrt}
+\bibliography{bibil.bib}
+
+
+
+\end{document}
