@@ -155,6 +155,74 @@ Use commas, parentheses (sparingly), or restructure the sentence to connect idea
 
 ---
 
+## Rule 9: Journal of NeuroEngineering and Rehabilitation Requirements
+
+### Person-First Language
+**Do not use** disability-first language or stigmatizing terms.
+
+**Required phrasing:**
+- "a person with a stroke" or "a person who has a stroke"
+- "a person with sleep apnea"
+- "a person with insomnia"
+- "a person with restless legs syndrome"
+
+**Avoid:**
+- "victim", "patient", "suffering from", "afflicted with"
+- "the handicapped", "the disabled", "brain damaged"
+- Any language that defines a person by their condition
+
+**Why:** Journal policy requires person-first language to speak appropriately about individuals with disabilities.
+
+### Manuscript Structure
+The manuscript must include these sections in order:
+1. Title page (with study design in title if appropriate)
+2. Abstract (structured: Background, Methods, Results, Conclusions)
+3. Keywords (3-10)
+4. Background (context, aims, literature summary, why study was necessary)
+5. Methods (aim, design, setting, participants/materials, processes, statistical analysis)
+6. Results (findings with statistical analysis)
+7. Discussion (implications in context of existing research, limitations)
+8. Conclusions (main conclusions with importance and relevance)
+9. List of abbreviations (if abbreviations used in text)
+10. Declarations (mandatory section with all subheadings)
+
+### Abstract Requirements
+- Maximum 350 words
+- No abbreviations (minimize)
+- No citations
+- Must include separate sections: Background, Methods, Results, Conclusions
+
+### Declarations Section (Mandatory)
+All manuscripts must include a 'Declarations' heading with these subheadings:
+- Ethics approval and consent to participate
+- Consent for publication
+- Availability of data and materials
+- Competing interests
+- Funding
+- Authors' contributions
+- Acknowledgements
+- Authors' information (optional)
+
+If a section is not applicable, include the heading and write "Not applicable".
+
+### References (Vancouver Style)
+- Numbered citations in order of appearance
+- Web links and URLs go in reference list, not in text
+- Include access date for web resources
+- Dataset citations should include persistent identifiers (DOI)
+
+### Data Availability
+Must include a data availability statement in one of these forms:
+- Repository name with persistent link
+- "Available from corresponding author on reasonable request"
+- Explanation if data cannot be shared publicly
+
+### Abbreviations
+- Define at first use in text
+- Provide a separate "List of abbreviations" section if abbreviations are used
+
+---
+
 ## Additional Conventions
 
 ### Citations
