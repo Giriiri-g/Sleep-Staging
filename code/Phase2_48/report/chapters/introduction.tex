@@ -1,0 +1,48 @@
+% Chapter 1 — Introduction
+
+\section{Background}
+
+Sleep disorders represent one of the most prevalent yet underdiagnosed categories of chronic health conditions globally. The World Health Organization estimates that sleep disorders affect approximately one third of the adult population, with obstructive sleep apnea (OSA) alone affecting over one billion individuals worldwide. Despite this scale, the gold-standard diagnostic tool, polysomnography (PSG), remains expensive, clinically resource-intensive, and inaccessible to most patients outside tertiary care centres. Manual PSG scoring requires trained sleep technologists to classify each 30-second epoch of continuous overnight recording into one of five sleep stages according to AASM guidelines \cite{berry2020aasm}, a process that typically consumes four to eight hours per patient recording. This bottleneck creates systematic underdiagnosis, particularly for insomnia and restless legs syndrome (RLS), which lack clear physiological signatures comparable to the apnea-hypopnea events that make OSA more tractable for automated detection.
+
+Sleep architecture is composed of five stages: wake, N1, N2, N3, and REM. Each stage is distinguished by characteristic electroencephalogram (EEG) patterns that encode distinct neurological processes \cite{supratak2017deepsleepnet, phan2022sleeptransformer}. Wake is characterised by low-amplitude, high-frequency alpha and beta activity. N1 is a transitional stage with mixed-frequency, low-amplitude activity. N2 contains sleep spindles and K-complexes. N3 is dominated by high-amplitude delta waves associated with restorative slow-wave sleep. REM sleep exhibits low-amplitude, mixed-frequency activity similar to wakefulness and is associated with dreaming and memory consolidation.
+
+Deep learning has transformed automated sleep analysis over the past decade. Convolutional neural networks, recurrent architectures, and transformer-based models have demonstrated staging accuracies approaching inter-rater agreement on benchmark datasets \cite{phan2022sleeptransformer, fu2023tsanet, cong2025bits}. However, two critical gaps persist. First, most automated systems are trained and evaluated for sleep staging alone, treating disorder detection as a separate downstream problem disconnected from the staging pipeline. Second, existing systems produce predictions without interpretable explanations, producing what clinicians describe as black-box decisions that cannot be audited, contested, or used to support patient-facing communication.
+
+The three most prevalent sleep disorders addressed in this project are obstructive sleep apnea, insomnia, and restless legs syndrome. Obstructive sleep apnea is characterised by recurrent upper-airway collapse during sleep, insomnia reflects hyper-arousal and difficulty maintaining sleep, and restless legs syndrome is associated with dopaminergic dysfunction leading to uncomfortable leg sensations and periodic limb movements. Epidemiological data indicate that obstructive sleep apnea affects approximately 10 to 17 percent of adults, insomnia affects 10 to 30 percent, and restless legs syndrome affects 5 to 10 percent, imposing substantial health and economic burdens \cite{rashid2022osa, karthikeyan2023insomnet, seifollahi2023osarls}.
+
+Figure~\ref{fig:overview_intro} illustrates the overall context of this project, contrasting traditional PSG diagnosis with the proposed AI-based automated assessment framework.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{paper overview introduction figure.png}
+    \caption{Overview of the automated sleep disorder assessment framework. Traditional in-lab PSG diagnosis is costly, time-consuming, and inaccessible. The proposed system replaces manual scoring with a transformer-based AI pipeline that performs sleep stage classification, disorder detection, and dual-tier explainability for both clinicians and patients.}
+    \label{fig:overview_intro}
+\end{figure}
+
+\section{Problem Addressed}
+
+Current automated PSG analysis systems share four structural limitations that this project explicitly targets.
+
+The first limitation is single-task framing. Existing systems are optimised for staging accuracy on balanced benchmark datasets. None simultaneously addresses apnea, insomnia, and restless legs syndrome with a unified feature extraction and classification pipeline.
+
+The second limitation is label-feature misalignment. Insomnia and RLS labels in population studies, including MESA, are self-reported, encoding diagnostic history and treatment-seeking behaviour rather than raw physiological measurements. No prior system identifies this as a root cause of poor classification performance and designs around it.
+
+The third limitation is black-box predictions. GradCAM, attention rollout, and uncertainty quantification have been applied individually in isolation. No system integrates all three into a unified clinical review workflow with automated epoch flagging.
+
+The fourth limitation is inaccessible patient explanation. No existing research system translates probabilistic PSG outputs into patient-readable risk scores, natural-language counterfactuals, feature importance in plain English, and an interactive conversational AI interface simultaneously.
+
+\section{Motivation}
+
+The primary research objective is to develop a multi-disorder sleep analysis framework that achieves clinically meaningful F1 scores for apnea, insomnia, and RLS simultaneously, not just the easiest target.
+
+The secondary objectives are as follows. First, to design a feature selection pipeline that identifies complementary feature groups rather than standalone strong predictors, addressing the core failure of L1-only selection methods. Second, to build a temporal-spectral fusion transformer that jointly models raw EEG morphology and engineered spectral features for five-class sleep staging. Third, to produce per-epoch explainability through GradCAM event localisation, attention rollout, and Monte Carlo Dropout confidence scoring that meets clinical review standards. Fourth, to quantify prediction uncertainty per epoch to flag cases that require human review.
+
+The research is motivated by five formal research questions. RQ1 asks whether a temporal-spectral fusion model can outperform individual-modality models for multi-disorder sleep staging. RQ2 asks whether ElasticNet bootstrap stability selection outperforms pure L1 for discovering complementary feature sets. RQ3 asks whether there is a label-feature alignment ceiling that limits PSG signal features for self-reported disorder labels. RQ4 asks whether merging PSG signal features with questionnaire features yields complementary gains, and what feature selection approach is required to realise those gains. RQ5 asks whether GradCAM combined with attention rollout can produce clinically interpretable epoch-level EEG event localisation.
+
+\section{Scope of the Study}
+
+This project covers the following areas. The MESA Sleep Study dataset is used for disorder classification across 2,237 subjects, accessed under a one-year research data use agreement from the National Sleep Research Resource (NSRR). The Sleep-EDF Expanded dataset is used for sleep staging across 197 overnight recordings, accessed from PhysioNet. Three disorder targets are addressed: obstructive sleep apnea, insomnia, and restless legs syndrome. Five sleep stages are classified: wake, N1, N2, N3, and REM. All model development and training is conducted in Python using PyTorch, scikit-learn, and MNE-Python on Kaggle GPU infrastructure. Large language model inference for the patient-facing explainability features uses the Groq Cloud API. Version control is managed with Git and development is conducted in Visual Studio Code.
+
+The following areas are excluded from the current scope. Real-time inference on wearable devices is not addressed. Paediatric populations are not included. Clinical trial validation is not performed. An end-to-end EDF preprocessing backend is planned for a future phase. Cross-dataset generalisation beyond MESA and Sleep-EDF is not evaluated in this work.
+
+The remainder of this report is organised as follows. Chapter 2 reviews existing research and tools and identifies the research gaps that motivate this work. Chapter 3 describes the proposed methodology in full, covering the datasets, preprocessing pipeline, sleep staging architecture, disorder detection pipeline, and explainability system. Chapter 4 presents experimental results, analysis, and comparative evaluation across seven experimental configurations. Chapter 5 concludes the report and outlines directions for future work. The Appendix provides key code listings from the research pipeline.

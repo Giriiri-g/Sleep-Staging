@@ -1,0 +1,32 @@
+% Chapter 5 — Conclusion and Scope for Further Research
+% Template: single chapter with conclusion summary and future work
+
+\section{Conclusion}
+
+This project presented a unified explainable deep learning framework for sleep disorder detection that simultaneously stages sleep and predicts three clinically relevant disorders. The work addressed four structural limitations of existing automated PSG analysis systems: single-task framing, label-feature misalignment, black-box predictions, and inaccessible patient explanation.
+
+The temporal-spectral fusion transformer achieved macro F1 of 0.788 on the Sleep-EDF Expanded benchmark, with notably strong N1 detection at 59.95 percent F1, surpassing specialised architectures including BiTS-SleepNet at 50.23 percent and SleepTransformer at 48.5 percent. The ablation study confirmed that fusion approaches substantially outperform single-modality models, with simple concatenation proving competitive against more complex attention mechanisms by preserving all modality-specific information without gating-induced attenuation.
+
+For disorder detection, the ElasticNet stability selection approach improved insomnia detection by 35.9 percent over traditional L1 regularisation by preserving complementary feature groups that pure sparsity constraints discarded. The analysis revealed an important finding regarding label-feature alignment: self-reported disorder labels correlate with behavioural questionnaire features rather than raw physiological signals, with the exception of restless legs syndrome where periodic limb movement markers provide direct physiological signatures. This 4.3-fold performance gap between questionnaire and PSG features for apnea classification is a methodological finding that extends beyond this project and motivates a shift toward physiologically derived labels in future multi-disorder PSG research.
+
+The explainability pipeline addresses a critical barrier to clinical adoption by providing tailored explanations for distinct audiences. Clinicians receive attention-based temporal explanations, GradCAM signal localisation, and Monte Carlo Dropout uncertainty quantification, enabling informed review of automated predictions. Patients receive accessible risk scores, feature importance visualisations, counterfactual explanations identifying actionable changes, and conversational AI guidance supporting self-management. This dual-interface design recognises that clinical utility requires not only accuracy but also transparency and actionability for all stakeholders.
+
+\section{Scope for Further Research}
+
+Several directions for future work emerge from the findings of this project.
+
+The most immediate priority is running Experiment 6b on Kaggle to evaluate the corrected two-stage feature selection pipeline on the merged questionnaire and PSG feature set. If the mutual information pre-filter and ElasticNet stability selection produce the correct features-to-samples regime, the merged features should outperform both Experiment 4 and Experiment 5 on restless legs syndrome by combining periodic limb movement signals from PSG with behavioural correlates from the questionnaire.
+
+The second priority is completing the temporal-spectral fusion cross-disorder evaluation by running the trained fusion checkpoint against the disorder detection benchmarks as the definitive Experiment 7. This will establish whether the staging model's learned representations transfer to disorder-level prediction.
+
+Physiological label creation is the most impactful methodological improvement available. Deriving apnea labels from apnea-hypopnea index greater than 15 and restless legs syndrome labels from periodic limb movement index greater than 15 from MESA signal data would eliminate the self-reported label ceiling and allow PSG signal features to reach their true predictive potential.
+
+Raw EMG time-series modelling for restless legs syndrome would extend the temporal encoder to accept raw leg EMG signals rather than aggregated periodic limb movement statistics. The current best restless legs syndrome F1 of 0.182 suggests that aggregated statistics do not adequately capture the stereotyped leg movement pattern, and raw waveform modelling is expected to yield substantial improvement.
+
+Multi-task learning with a shared encoder and three disorder-specific heads would exploit the shared sleep architecture correlates across disorders. Insomnia and restless legs syndrome share sleep continuity disruption patterns that separate single-task models cannot exploit, and joint training may improve all three targets simultaneously.
+
+Deployment of the trained models as a callable inference service would enable the explainability pipeline to operate on real patient recordings end-to-end, replacing the current offline batch evaluation workflow.
+
+Cross-dataset generalisation evaluation on held-out populations including SHHS, CHAT, and CFS would assess whether the trained models transfer to different recording environments, electrode configurations, and demographic populations. This is a prerequisite for clinical deployment beyond the MESA cohort.
+
+Finally, a structured recommendation engine mapping specific feature deviations to validated lifestyle interventions would address the personalised recommendation component of the project title beyond the current conversational AI advisor. Mapping high wake after sleep onset to sleep restriction therapy, or high caffeine-related features to specific cutoff timing recommendations, would provide evidence-grounded guidance rather than relying solely on large language model generation.

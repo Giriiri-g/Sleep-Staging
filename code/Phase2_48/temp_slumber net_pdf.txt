@@ -1,0 +1,59 @@
+1
+Vol.:(0123456789)
+Scientific Reports |         (2024) 14:4797  
+| https://doi.org/10.1038/s41598-024-54727-0
+www.nature.com/scientificreports
+SlumberNet: deep learning 
+classification of sleep stages using 
+residual neural networks
+Pawan K. Jha 1,2,3,4, Utham K. Valekunja 1,2,3,4 & Akhilesh B. Reddy 1,2,3*
+Sleep research is fundamental to understanding health and well-being, as proper sleep is essential 
+for maintaining optimal physiological function. Here we present SlumberNet, a novel deep learning 
+model based on residual network (ResNet) architecture, designed to classify sleep states in mice using 
+electroencephalogram (EEG) and electromyogram (EMG) signals. Our model was trained and tested 
+on data from mice undergoing baseline sleep, sleep deprivation, and recovery sleep, enabling it to 
+handle a wide range of sleep conditions. Employing k-fold cross-validation and data augmentation 
+techniques, SlumberNet achieved high levels of overall performance (accuracy = 97%; F1 score = 96%) 
+in predicting sleep stages and showed robust performance even with a small and diverse training 
+dataset. Comparison of SlumberNet’s performance to manual sleep stage classification revealed a 
+significant reduction in analysis time (~ 50 × faster), without sacrificing accuracy. Our study showcases 
+the potential of deep learning to facilitate sleep research by providing a more efficient, accurate, and 
+scalable method for sleep stage classification. Our work with SlumberNet further demonstrates the 
+power of deep learning in mouse sleep research.
+Sleep research is critical for understanding health and well-being, as sleep plays a vital role in numerous physi-
+ological processes. These processes include memory consolidation, cognitive function, immune system regula-
+tion, cellular repair, and hormonal balance. Proper sleep is essential for maintaining optimal physical and mental 
+health, and disruptions in sleep can lead to a wide range of adverse ­effects1. Sleep disturbances, such as insomnia, 
+sleep apnea, and circadian rhythm disorders, are increasingly prevalent in modern society, affecting millions of 
+people ­worldwide2. Chronic sleep disruptions have been linked to an increased risk of developing various health 
+conditions, including obesity, diabetes, cardiovascular disease, and even certain types of ­cancer3. By studying 
+sleep patterns and their underlying mechanisms, we can gain valuable insights into the importance of sleep and 
+develop novel interventions to address sleep-related disorders.
+Mice serve as essential model organisms for investigating sleep patterns and their implications in ­humans4. 
+Sleep stages in mice can be categorized into wake, non-REM (NREM), and REM ­stages5–7. During the wake 
+stage, mice exhibit active brain and body functions, resulting in mixed frequency electroencephalography (EEG) 
+signals and large electromyography (EMG) ­amplitudes8. The NREM stage, accounting for over 90% of sleep, 
+is marked by cortical synchronization in the brain and a resting body, leading to lower peak EEG frequencies, 
+higher EEG amplitudes, and smaller EMG amplitudes. The REM stage is characterized by active brain function 
+and a motionless body, as evidenced by low EMG ­amplitudes9,10. Classification of wake and sleep periods into 
+these three stages based on EEG and EMG signals is a time-consuming part of sleep analysis, since many hours 
+(or days) or data need to be analysed by visual inspection of the data.
+In this paper, we present a novel deep learning model (“SlumberNet”) based on the residual network (ResNet) 
+­architecture11, specifically designed for the classification of sleep states in mice using EEG and EMG signals. Our 
+goal is to advance the understanding of sleep and its underlying mechanisms by leveraging the power of deep 
+learning to vastly speed up sleep stage classification. We assessed both mice undergoing baseline (undisturbed 
+sleep) and mice subjected to sleep deprivation for 12 h. This approach allowed us to train and test the SlumberNet 
+model in perturbed states, which, to our knowledge, has not been done before.
+Several sleep scoring methods for mice have been put forward ­before12–19. Deep learning has made significant 
+strides in recent years, particularly in image classification, where convolutional neural networks (CNNs) have 
+OPEN
+1Department of Systems Pharmacology and Translational Therapeutics, Perelman School of Medicine, University 
+of Pennsylvania, Philadelphia, PA 19104, USA. 2Institute for Translational Medicine and Therapeutics, Perelman 
+School of Medicine, University of Pennsylvania, Philadelphia, PA 19104, USA. 3Chronobiology and Sleep Institute 
+(CSI), Perelman School of Medicine, University of Pennsylvania, Philadelphia, PA  19104, USA. 4These authors 
+contributed equally: Pawan K. Jha and Utham K. Valekunja. *email: areddy@cantab.net
+2
+Vol:.(1234567890)
+Scientific Reports |         (2024) 14:4797  | 
+https://doi.org/10.1038/s41598-024-54727-0
+www.nature

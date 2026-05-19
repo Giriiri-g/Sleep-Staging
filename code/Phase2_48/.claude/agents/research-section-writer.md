@@ -1,7 +1,7 @@
 ---
 name: "research-section-writer"
 description: "Use this agent when writing, drafting, or refining sections of a research article in scientific or medical domains. This agent should be invoked after completing experiments, analyses, or data collection to document findings properly.\\n\\nExamples:\\n<example>\\nContext: User has completed model training and evaluation for sleep staging research.\\nuser: \"I have the training results with 82% accuracy. Help me write the Results section.\"\\nassistant: \"I'll use the research-section-writer agent to draft a properly structured Results section with your findings.\"\\n<Agent tool call to research-section-writer>\\n</example>\\n<example>\\nContext: User needs to document their methodology for PSG feature extraction.\\nuser: \"I need to write the Methods section for my sleep disorder classification paper.\"\\nassistant: \"Let me invoke the research-section-writer agent to compose a well-organized Methods section following academic conventions.\"\\n<Agent tool call to research-section-writer>\\n</example>\\n<example>\\nContext: User has findings to interpret and relate to existing literature.\\nuser: \"Help me write the Discussion section explaining why our transformer model outperforms CNN baselines.\"\\nassistant: \"I'll use the research-section-writer agent to craft a Discussion section with proper argumentation flow.\"\\n<Agent tool call to research-section-writer>\\n</example>"
-model: opus
+model: inherit
 color: red
 memory: project
 ---

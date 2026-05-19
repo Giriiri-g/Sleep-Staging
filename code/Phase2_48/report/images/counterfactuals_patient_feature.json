@@ -1,0 +1,152 @@
+{
+  "disorder": "Apnea",
+  "risk_score": 99,
+  "counterfactuals": [
+    {
+      "feature_raw": "cpap5",
+      "feature_label": "CPAP Device Use",
+      "unit": "",
+      "normal_range": "N/A",
+      "current_value": 4.624,
+      "target_value": 1.387,
+      "delta_pct": 70.0,
+      "shap_impact": 5.7306
+    },
+    {
+      "feature_raw": "avgsleepboutsnw5",
+      "feature_label": "Avgsleepboutsnw5",
+      "unit": "",
+      "normal_range": "\u2014",
+      "current_value": -0.876,
+      "target_value": -0.613,
+      "delta_pct": 30.0,
+      "shap_impact": 0.0793
+    },
+    {
+      "feature_raw": "noplm5",
+      "feature_label": "Noplm5",
+      "unit": "",
+      "normal_range": "\u2014",
+      "current_value": 0.179,
+      "target_value": 0.125,
+      "delta_pct": 30.0,
+      "shap_impact": 0.0776
+    },
+    {
+      "feature_raw": "sdnn_fn5",
+      "feature_label": "Sdnn Fn5",
+      "unit": "",
+      "normal_range": "\u2014",
+      "current_value": -1.092,
+      "target_value": -0.764,
+      "delta_pct": 30.0,
+      "shap_impact": 0.0646
+    },
+    {
+      "feature_raw": "waso5",
+      "feature_label": "Wake After Sleep Onset",
+      "unit": "min",
+      "normal_range": "< 30",
+      "current_value": -1.323,
+      "target_value": -0.926,
+      "delta_pct": 30.0,
+      "shap_impact": 0.0602
+    },
+    {
+      "feature_raw": "timest1p5",
+      "feature_label": "Timest1P5",
+      "unit": "",
+      "normal_range": "\u2014",
+      "current_value": -0.545,
+      "target_value": -0.381,
+      "delta_pct": 30.0,
+      "shap_impact": 0.0542
+    },
+    {
+      "feature_raw": "mndnop5",
+      "feature_label": "Mndnop5",
+      "unit": "",
+      "normal_range": "\u2014",
+      "current_value": 0.195,
+      "target_value": 0.136,
+      "delta_pct": 30.0,
+      "shap_impact": 0.0449
+    },
+    {
+      "feature_raw": "havgdur5",
+      "feature_label": "Havgdur5",
+      "unit": "",
+      "normal_range": "\u2014",
+      "current_value": -1.185,
+      "target_value": -0.829,
+      "delta_pct": 30.0,
+      "shap_impact": 0.0437
+    }
+  ],
+  "recommendations": [
+    {
+      "rank": 1,
+      "title": "Increase CPAP Device Use",
+      "action": "Use a CPAP device for at least 7 hours per night, as recommended by the American Academy of Sleep Medicine (AASM), to help reduce apnea episodes",
+      "why": "Consistent CPAP use can significantly reduce sleep apnea symptoms and improve overall sleep quality",
+      "difficulty": "Medium",
+      "timeframe": "Immediate"
+    },
+    {
+      "rank": 2,
+      "title": "Improve Sleep Bout Duration",
+      "action": "Aim for 4-6 sleep bouts per night, with each bout lasting at least 90 minutes, as suggested by the National Sleep Foundation, to help regulate sleep patterns",
+      "why": "Increasing sleep bout duration can help improve sleep quality and reduce sleep fragmentation",
+      "difficulty": "Hard",
+      "timeframe": "2-4 weeks"
+    },
+    {
+      "rank": 3,
+      "title": "Reduce Nocturnal Awakenings",
+      "action": "Establish a consistent sleep schedule and create a relaxing bedtime routine to reduce nocturnal awakenings, as recommended by the NHS, to help improve sleep continuity",
+      "why": "Minimizing nocturnal awakenings can help improve sleep quality and reduce sleep apnea risk",
+      "difficulty": "Medium",
+      "timeframe": "1-2 weeks"
+    },
+    {
+      "rank": 4,
+      "title": "Increase Sleep Period Duration",
+      "action": "Aim for a total sleep period of at least 7-8 hours per night, as suggested by the AASM, to help reduce sleep apnea risk",
+      "why": "Increasing sleep period duration can help improve sleep quality and reduce sleep apnea episodes",
+      "difficulty": "Hard",
+      "timeframe": "2-4 weeks"
+    },
+    {
+      "rank": 5,
+      "title": "Reduce Wake After Sleep Onset",
+      "action": "Avoid screens and stimulating activities at least 90 minutes before bedtime, as recommended by the National Sleep Foundation, to help reduce wake after sleep onset",
+      "why": "Minimizing wake after sleep onset can help improve sleep quality and reduce sleep apnea risk",
+      "difficulty": "Easy",
+      "timeframe": "Immediate"
+    },
+    {
+      "rank": 6,
+      "title": "Improve Sleep Stage Transitions",
+      "action": "Establish a consistent sleep schedule and create a sleep-conducive environment to help improve sleep stage transitions, as suggested by the AASM, to reduce sleep apnea risk",
+      "why": "Smoothing sleep stage transitions can help improve sleep quality and reduce sleep apnea episodes",
+      "difficulty": "Medium",
+      "timeframe": "1-2 weeks"
+    },
+    {
+      "rank": 7,
+      "title": "Reduce Nighttime Movement",
+      "action": "Avoid heavy meals and stimulating activities close to bedtime, as recommended by the NHS, to help reduce nighttime movement and promote better sleep",
+      "why": "Minimizing nighttime movement can help improve sleep quality and reduce sleep apnea risk",
+      "difficulty": "Easy",
+      "timeframe": "Immediate"
+    },
+    {
+      "rank": 8,
+      "title": "Increase Average Sleep Bout Duration",
+      "action": "Aim for an average sleep bout duration of at least 3-4 hours per bout, as suggested by the National Sleep Foundation, to help improve sleep quality and reduce sleep apnea risk",
+      "why": "Increasing average sleep bout duration can help improve sleep continuity and reduce sleep apnea episodes",
+      "difficulty": "Hard",
+      "timeframe": "2-4 weeks"
+    }
+  ]
+}

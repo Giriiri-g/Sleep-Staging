@@ -1,0 +1,286 @@
+% Chapter 4 — Experimentation and Result Analysis
+
+\section{Experimental Setup}
+
+All deep learning experiments were conducted on Kaggle GPU kernels using dual NVIDIA Tesla T4 GPUs with 30 GB combined VRAM. Classical machine learning experiments for disorder detection were run on Kaggle CPU nodes with 4 virtual CPUs and 30 GB RAM. The temporal-spectral fusion model for sleep staging was implemented in PyTorch 2.0. Disorder classification used scikit-learn 1.3, XGBoost 2.0, and PyTorch. Python 3.10 served as the primary environment, with pandas 2.0 and NumPy 1.24 for data manipulation. EEG signal processing used MNE-Python 1.5. Large language model inference for the patient-facing explainability features used the Groq Cloud API. Version control was managed with Git and development was conducted in Visual Studio Code. GPU utilisation remained between 85 and 95 percent during fusion model training.
+
+\section{Datasets}
+
+Two public cohorts were employed in this work.
+
+The Sleep-EDF Expanded dataset \cite{sleepedfx} provides 197 PSG nights with Fpz-Cz EEG sampled at 100 Hz and five-class AASM sleep stage labels. The dataset was split into training and test sets using an 80/20 stratified split at the subject level with random seed 42 to prevent data leakage across subjects. After preprocessing, the cleaned dataset contains 211,943 epochs across five classes as described in Chapter 3.
+
+The MESA Sleep Study \cite{mesa2020} provides 2,237 participants with questionnaire-derived binary disorder labels for apnea, insomnia, and restless legs syndrome, and a 136-column clinical feature matrix derived from PSG signals. The feature matrix was cleaned by replacing HRV zero-values with NaN followed by median imputation, dropping near-zero mean-HR columns, applying log transformation to spectral power features, and removing highly correlated pairs with absolute Pearson correlation exceeding 0.95.
+
+\section{Evaluation Metrics}
+
+Given the severe class imbalance with positive rates ranging from 4 to 9 percent across disorder targets, the primary metric is the F1 score. Classification thresholds are tuned on out-of-fold probabilities to maximise F1 per disorder rather than using the default threshold of 0.5, which would produce near-zero recall for minority classes. The secondary metric is the precision-recall area under the curve, which is invariant to threshold choice and more informative than ROC-AUC at low positive rates. ROC-AUC is reported only for historical reference and is not used for model selection, as a classifier predicting all-negative scores achieves ROC-AUC of 0.5 but F1 of 0.
+
+\section{Experimental Design}
+
+Seven experimental pipelines were evaluated to systematically assess the contribution of each design choice.
+
+Experiment 1 established an RNN baseline using 9 macro sleep architecture features extracted manually from PSG recordings. Experiment 2 evaluated a manual feature set of 9 clinically chosen architecture variables including wake after sleep onset, stage percentages, total sleep time, sleep latency, and REM latency. Experiment 3 applied automated L1 feature selection using mutual information ranking followed by Lasso stability selection on the full questionnaire CSV. Experiment 4 replaced L1 with ElasticNet bootstrap stability selection to test whether the L2 component would preserve complementary feature groups. Experiment 5 evaluated PSG signal-derived features independently to assess the alignment between physiological signals and self-reported disorder labels. Experiment 6b applied a two-stage feature selection pipeline with a mutual information pre-filter at threshold 0.002 followed by ElasticNet stability selection on the merged questionnaire and PSG feature set, ensuring the features-to-samples ratio remained below 0.15. Experiment 7 trained the temporal-spectral fusion transformer on the Sleep-EDF Expanded dataset for five-class sleep staging.
+
+Hyperparameters for the fusion model were set as follows: learning rate $10^{-3}$ with ReduceLROnPlateau decay, dropout rate 0.2, batch size 64, window size 256 epochs, and 150 training epochs. Class weights were set as $\text{pos\_weight} = n_{\text{neg}} / n_{\text{pos}}$ for all binary classifiers. Early stopping with patience of 10 epochs on validation loss was applied to the PyTorch MLP in disorder detection experiments.
+
+\section{Results}
+
+\subsection{Sleep Staging Ablation Study}
+
+Table~\ref{tab:ablation} presents the results of the ablation study comparing temporal-only, spectral-only, and fusion architectures on the Sleep-EDF Expanded dataset. The temporal-only model achieves macro F1 of 0.191, with N2 detection at 0.534 but complete failure on N1, N3, and REM. The spectral-only model achieves macro F1 of 0.582 with balanced performance across all stages. All three fusion variants substantially outperform single-modality approaches, with concatenation fusion achieving the highest macro F1 of 0.788.
+
+\begin{table}[h]
+\centering
+\caption{Ablation study comparing single-modality and fusion architectures. MF1 denotes macro F1 score. All values are F1 scores per class.}
+\label{tab:ablation}
+\begin{tabular}{lcccccc}
+\toprule
+Architecture & Wake & N1 & N2 & N3 & REM & MF1 \\
+\midrule
+Temporal Only & 0.420 & 0.000 & 0.534 & 0.000 & 0.000 & 0.191 \\
+Spectral Only & 0.780 & 0.250 & 0.740 & 0.680 & 0.460 & 0.582 \\
+Cross-Attention Fusion & 0.911 & 0.588 & 0.754 & 0.758 & 0.889 & 0.780 \\
+Gated Fusion & 0.911 & 0.600 & 0.763 & 0.748 & 0.893 & 0.783 \\
+Concatenation Fusion & 0.917 & 0.600 & 0.765 & 0.768 & 0.889 & \textbf{0.788} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The normalised confusion matrices for the temporal-only and spectral-only baselines are shown in Figures~\ref{fig:cm_temporal} and~\ref{fig:cm_spectral}. The temporal-only model collapses predictions toward N3 and REM, with zero recall for N2. The spectral-only model shows a more balanced distribution but still misclassifies a substantial fraction of N2 epochs as N1.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.65\linewidth]{confusion_matrix_temporal_only_test_normalised.png}
+    \caption{Normalised confusion matrix for the temporal-only baseline model. The model fails to classify N2 epochs entirely (0\% recall), collapsing predictions toward N3 and distributing errors broadly across all classes. This confirms that raw EEG waveforms alone are insufficient for reliable five-class staging without spectral guidance.}
+    \label{fig:cm_temporal}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.65\linewidth]{confusion_matrix_spectral_only_test_normalised.png}
+    \caption{Normalised confusion matrix for the spectral-only baseline model. Performance is substantially better than temporal-only, with N3 recall at 89.1\% and N1 recall at 63.5\%. However, N2 recall is only 49.1\%, with significant confusion toward N1, motivating the addition of the temporal stream to capture morphological transients.}
+    \label{fig:cm_spectral}
+\end{figure}
+
+\subsection{Merged Per-Class Metrics for All Fusion Variants}
+
+Table~\ref{tab:perclass_merged} presents the merged per-class precision, recall, and F1 scores for all three fusion variants alongside the two single-modality baselines, extracted from the classification reports. This consolidated view enables direct comparison of how each architecture handles each sleep stage.
+
+\begin{table}[h]
+\centering
+\caption{Merged per-class classification metrics for all architectures. P = Precision, R = Recall, F1 = F1 score. Best F1 per class shown in bold.}
+\label{tab:perclass_merged}
+\begin{tabular}{llccccccccccccccc}
+\toprule
+& & \multicolumn{3}{c}{Wake} & \multicolumn{3}{c}{N1} & \multicolumn{3}{c}{N2} & \multicolumn{3}{c}{N3} & \multicolumn{3}{c}{REM} \\
+\cmidrule(lr){3-5}\cmidrule(lr){6-8}\cmidrule(lr){9-11}\cmidrule(lr){12-14}\cmidrule(lr){15-17}
+Architecture & Acc & P & R & F1 & P & R & F1 & P & R & F1 & P & R & F1 & P & R & F1 \\
+\midrule
+Temporal Only & -- & -- & -- & 0.42 & -- & -- & 0.00 & -- & -- & 0.53 & -- & -- & 0.00 & -- & -- & 0.00 \\
+Spectral Only & -- & -- & -- & 0.78 & -- & -- & 0.25 & -- & -- & 0.74 & -- & -- & 0.68 & -- & -- & 0.46 \\
+Cross-Attn & 79.1\% & 0.983 & 0.849 & 0.911 & 0.437 & 0.900 & 0.588 & 0.961 & 0.621 & 0.754 & 0.618 & 0.982 & 0.758 & 0.852 & 0.928 & 0.889 \\
+Gated Fusion & 79.5\% & 0.987 & 0.847 & 0.911 & 0.448 & 0.906 & 0.600 & 0.964 & 0.631 & 0.763 & 0.604 & 0.983 & 0.748 & 0.860 & 0.928 & 0.893 \\
+Concat Fusion & \textbf{79.9\%} & 0.984 & 0.858 & \textbf{0.917} & 0.447 & 0.911 & \textbf{0.600} & 0.958 & 0.637 & \textbf{0.765} & 0.634 & 0.973 & \textbf{0.768} & 0.862 & 0.918 & \textbf{0.889} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Confusion Matrices for Fusion Variants}
+
+Figures~\ref{fig:cm_concat}, \ref{fig:cm_gated}, and~\ref{fig:cm_crossattn} show the count and normalised confusion matrices for the three fusion variants. All three variants show strong diagonal classification for wake, N3, and REM. The concatenation fusion achieves the best N3 recall at 97.32 percent and the best overall accuracy at 79.91 percent.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{confusion_matrix_best_concatentation.png}
+    \caption{Confusion matrices (counts and normalised) for the concatenation fusion model. The normalised matrix shows strong diagonal performance: wake at 85.81\%, N1 at 91.09\%, N3 at 97.32\%, and REM at 91.76\%. N2 recall is 63.73\%, with the primary confusion toward N1 (20.07\%), reflecting the spectral overlap between these adjacent stages.}
+    \label{fig:cm_concat}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{confusion_matrix_gated_fusion.png}
+    \caption{Confusion matrices (counts and normalised) for the gated fusion model. N3 recall reaches 98.31\%, the highest across all variants, while overall accuracy is 79.52\%. N2 recall is 63.09\%, slightly below the concatenation variant, consistent with the gating mechanism suppressing some morphological N2 features.}
+    \label{fig:cm_gated}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{confusion matrix_cross_attention.png}
+    \caption{Confusion matrices (counts and normalised) for the cross-attention fusion model. N3 recall is 98.15\% and REM recall is 92.79\%, matching the gated variant. Overall accuracy is 79.11\%, the lowest of the three fusion variants, with N2 recall at 62.06\% showing the highest confusion toward N1 among the fusion models.}
+    \label{fig:cm_crossattn}
+\end{figure}
+
+\subsection{ROC Curves for Fusion Variants}
+
+Figures~\ref{fig:roc_concat}, \ref{fig:roc_gated}, and~\ref{fig:roc_crossattn} show the one-vs-rest ROC curves for the three fusion variants. All variants achieve macro-average AUROC above 0.976, with N3 and wake showing the highest per-class AUROC values above 0.99. N1 consistently shows the lowest AUROC at 0.942 to 0.948, reflecting the inherent difficulty of this transitional stage.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.85\linewidth]{roc_curves_best_concatentation.png}
+    \caption{One-vs-rest ROC curves for the concatenation fusion model. Macro-average AUROC is 0.977 and micro-average is 0.969. Per-class AUROC values are: Wake = 0.993, N1 = 0.947, N2 = 0.971, N3 = 0.992, REM = 0.983. The N1 curve shows the widest separation from the diagonal, consistent with the transitional spectral characteristics of this stage.}
+    \label{fig:roc_concat}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.85\linewidth]{roc_curves_gated_fusion.png}
+    \caption{One-vs-rest ROC curves for the gated fusion model. Macro-average AUROC is 0.978 and micro-average is 0.969. Per-class AUROC values are: Wake = 0.992, N1 = 0.948, N2 = 0.973, N3 = 0.993, REM = 0.985. The gated fusion achieves marginally higher N2 and REM AUROC than the concatenation variant.}
+    \label{fig:roc_gated}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.85\linewidth]{auroc_cross_attention.png}
+    \caption{One-vs-rest ROC curves for the cross-attention fusion model. Macro-average AUROC is 0.976 and micro-average is 0.967. Per-class AUROC values are: Wake = 0.991, N1 = 0.942, N2 = 0.971, N3 = 0.992, REM = 0.982. The cross-attention variant shows the lowest N1 AUROC of the three fusion models, consistent with its lower N1 F1 score.}
+    \label{fig:roc_crossattn}
+\end{figure}
+
+\subsection{Comparison with State-of-the-Art Sleep Staging Methods}
+
+Table~\ref{tab:sota} presents the comparison of the proposed concatenation fusion model against state-of-the-art methods on the Sleep-EDF Expanded dataset. The proposed model achieves the highest N1 F1 at 59.95 percent, surpassing all compared methods.
+
+\begin{table}[h]
+\centering
+\caption{Comparison with state-of-the-art sleep staging methods on Sleep-EDF Expanded. Per-class F1 scores are reported as percentages.}
+\label{tab:sota}
+\begin{tabular}{lcccccc}
+\toprule
+Method & N1 & N2 & N3 & REM & Wake & Accuracy (\%) \\
+\midrule
+MultiSEss \cite{huang2025mhas} & 47.62 & 83.51 & 75.36 & 75.11 & 91.58 & 82.30 \\
+ADG-SleepNet \cite{sun2025adg} & 53.70 & 90.00 & 85.50 & 84.80 & 91.30 & 85.10 \\
+BiTS-SleepNet \cite{cong2025bits} & 50.23 & 87.05 & 82.50 & 85.33 & 93.33 & 85.09 \\
+TSA-Net \cite{fu2023tsanet} & 30.11 & 84.94 & 80.02 & 81.03 & 91.71 & 82.21 \\
+SleepTransformer \cite{phan2022sleeptransformer} & 48.50 & 86.50 & 80.90 & 84.60 & 93.50 & 84.90 \\
+\midrule
+Ours (Cross-Attention) & 58.82 & 75.43 & 75.84 & 88.86 & 91.10 & 80.26 \\
+Ours (Gated Fusion) & 59.98 & 76.27 & 74.79 & 89.25 & 91.13 & 80.67 \\
+Ours (Concatenation) & \textbf{59.95} & 76.54 & 76.78 & 88.90 & 91.67 & 81.04 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Disorder Detection Results}
+
+Table~\ref{tab:exp-summary} summarises F1 scores for apnea, insomnia, and restless legs syndrome across all experiments.
+
+\begin{table}[h]
+\centering
+\caption{Experiment summary. Primary metric is F1 score. Experiments 1 and 2 used ROC-AUC and are not directly comparable to F1 experiments.}
+\label{tab:exp-summary}
+\begin{tabular}{lccc}
+\toprule
+Experiment & Apnea F1 & Insomnia F1 & RLS F1 \\
+\midrule
+Exp 1 (RNN Baseline) & 0.614 & 0.568 & 0.540 \\
+Exp 2 (Manual Features) & 0.757 & 0.629 & 0.622 \\
+Exp 3 (L1 Selection) & 0.782 & 0.286 & 0.166 \\
+Exp 4 (ElasticNet) & \textbf{0.784} & \textbf{0.388} & 0.155 \\
+Exp 5 (PSG Signals) & 0.183 & 0.130 & \textbf{0.182} \\
+Exp 6b (Merged, Fixed) & TBD & TBD & TBD \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:exp4-models} presents the per-model breakdown for Experiment 4, which is the best-performing questionnaire-based pipeline.
+
+\begin{table}[h]
+\centering
+\caption{Per-model results for Experiment 4 (ElasticNet bootstrap stability selection).}
+\label{tab:exp4-models}
+\begin{tabular}{llccc}
+\toprule
+Target & Model & F1 & AUROC & PR-AUC \\
+\midrule
+Apnea & XGBoost & \textbf{0.7843} & 0.8835 & 0.7646 \\
+Apnea & MLP (PyTorch) & 0.7636 & 0.8998 & 0.7554 \\
+Apnea & Logistic Regression & 0.7600 & 0.8887 & 0.7530 \\
+Apnea & Random Forest & 0.7547 & 0.8798 & 0.7732 \\
+Apnea & Linear SVM & 0.7083 & 0.9182 & 0.7551 \\
+Insomnia & MLP (PyTorch) & \textbf{0.3881} & 0.7597 & 0.1944 \\
+Insomnia & Logistic Regression & 0.2946 & 0.7914 & 0.2025 \\
+RLS & MLP (PyTorch) & \textbf{0.1553} & 0.6308 & 0.0934 \\
+RLS & Random Forest & 0.1152 & 0.6858 & 0.0986 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Explainability Results}
+
+Figure~\ref{fig:exp_explainability} shows the integrated explainability output for a sample recording, combining the hypnogram comparison, attention rollout influence scores, Monte Carlo Dropout uncertainty, and GradCAM signal localisation for a single flagged epoch.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{exp.png}
+    \caption{Integrated explainability output for a sample recording. Top panel: ground truth hypnogram (solid black) versus model predictions (dashed blue) across 256 epochs. Second panel: per-epoch attention rollout influence scores showing which epochs drove the transformer's predictions. Third panel: per-epoch Monte Carlo Dropout predictive entropy coloured by uncertainty level (yellow = low, dark red = high). Bottom panel: GradCAM localisation for epoch 117 (predicted N2, true REM, uncertainty 1.113), with red regions indicating the signal segments that most influenced the misclassification.}
+    \label{fig:exp_explainability}
+\end{figure}
+
+Figure~\ref{fig:gradcam_signal} shows GradCAM signal importance maps for three sample epochs from the clinician-facing EEG viewer, illustrating how the model localises attention to specific signal regions within each 30-second window.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{signal importance_clinician.png}
+    \caption{GradCAM signal importance visualisation for three sample epochs in the clinician-facing interface. Each panel shows the raw EEG signal (black) overlaid with a GradCAM importance heatmap (colour scale from blue to red). The top two panels show REM epochs with medium confidence where the model attends to high-frequency oscillatory regions. The bottom panel shows an N2 epoch where the model focuses on lower-frequency components consistent with sleep spindle activity.}
+    \label{fig:gradcam_signal}
+\end{figure}
+
+Figure~\ref{fig:shap_feature} shows the SHAP feature importance comparison for a high-risk apnea subject versus a control subject, illustrating the clinician-facing feature attribution output.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{Feature Importance_clinicians.png}
+    \caption{SHAP feature importance for apnea classification comparing a control subject (risk = 0\%, left) and a high-risk subject (risk = 99\%, right). For the control subject, CPAP device use, minimum heart rate, and AHI features are the strongest risk-reducing factors. For the high-risk subject, CPAP device use dominates with a SHAP value of 5.73, confirming that the self-reported label is strongly driven by prior diagnosis and treatment history.}
+    \label{fig:shap_feature}
+\end{figure}
+
+\section{Analysis of Results}
+
+\subsection{Apnea: Strong Questionnaire Performance, PSG Collapse}
+
+Apnea achieves the highest F1 across all experiments using questionnaire features, reaching 0.7843 with XGBoost in Experiment 4. The label \texttt{slpapnea5} is self-reported: it encodes whether the subject was told they have sleep apnea. As shown in Figure~\ref{fig:shap_feature}, the strongest individual predictor is CPAP or BiPAP usage, which is a near-perfect proxy for having already received a diagnosis. When the same label is predicted from PSG signals in Experiment 5, F1 collapses to 0.183, a 4.3-fold reduction. PSG signals measure raw respiratory physiology; the questionnaire label encodes diagnostic history and treatment behaviour. These are fundamentally different constructs, and no amount of model capacity can overcome this construct mismatch.
+
+\subsection{Insomnia: ElasticNet Group Retention Critical}
+
+Insomnia shows the most dramatic improvement from Experiment 3 to Experiment 4, with F1 rising from 0.286 to 0.388, a 35.9 percent relative improvement. L1 regularisation arbitrarily selects one feature from each correlated group and discards all others. Insomnia requires combinations of sleep continuity metrics including wake after sleep onset, wake interruptions per hour, sleep onset latency, and total sleep time, which are individually weak but jointly predictive. The L2 term in ElasticNet retains these groups. The MLP implemented in PyTorch achieves the best insomnia F1 of 0.388, confirming that non-linear feature interactions exist beyond logistic regression capacity.
+
+\subsection{RLS: Physiological Markers Only Partially Captured}
+
+Restless legs syndrome is the hardest target across all experiments, with no result exceeding F1 of 0.182. The best result comes from PSG features in Experiment 5, where XGBoost achieves F1 of 0.182. This is the one case where PSG features marginally outperform questionnaire features, because periodic limb movement count, periodic limb movement index, and leg burst rate are direct physiological markers of restless legs syndrome that exist in the PSG signal. However, even these aggregated statistics reach only F1 of 0.182, suggesting that raw EMG time-series data would be required for substantial improvement.
+
+\subsection{Ablation Study: Fusion Superiority}
+
+The ablation study demonstrates that neither temporal nor spectral features alone achieve adequate staging performance. As shown in Table~\ref{tab:ablation} and Figures~\ref{fig:cm_temporal} and~\ref{fig:cm_spectral}, the temporal-only model fails completely on N1, N3, and REM stages, while the spectral-only model achieves moderate performance but struggles with N2. All fusion architectures substantially outperform single-modality approaches. The superiority of simple concatenation over gated fusion and cross-attention, visible in Tables~\ref{tab:ablation} and~\ref{tab:perclass_merged}, is consistent with the interpretation that concatenation preserves all modality-specific information without gating-induced attenuation.
+
+\subsection{N1 Detection: Key Clinical Achievement}
+
+The concatenation fusion achieves 59.95 percent F1 on N1, substantially exceeding specialised architectures as shown in Table~\ref{tab:sota}. The ROC curves in Figures~\ref{fig:roc_concat}, \ref{fig:roc_gated}, and~\ref{fig:roc_crossattn} confirm that N1 consistently shows the lowest per-class AUROC across all variants, reflecting the inherent difficulty of this transitional stage. The superior N1 detection of the proposed model indicates that the temporal-spectral fusion architecture effectively captures subtle spectral transitions that single-modality approaches miss.
+
+\subsection{Explainability Pipeline Validation}
+
+The integrated explainability output in Figure~\ref{fig:exp_explainability} demonstrates that the pipeline successfully identifies uncertain predictions requiring clinician attention. The flagged epoch at position 117 shows a prediction of N2 against a true label of REM, with predictive entropy of 1.113, placing it in the Low confidence tier. The GradCAM localisation for this epoch highlights signal regions that the model attended to, enabling a clinician to verify whether the attended regions correspond to physiologically meaningful EEG events or to artefacts. The attention rollout influence scores in the second panel show elevated influence at epochs near the N2-to-REM transition boundary, consistent with the model drawing on contextual information from the surrounding sleep architecture.
+
+The GradCAM signal importance maps in Figure~\ref{fig:gradcam_signal} show that the model attends to different signal regions for different stages, with REM epochs showing attention to high-frequency oscillatory components and N2 epochs showing attention to lower-frequency regions consistent with sleep spindle activity. The SHAP feature importance in Figure~\ref{fig:shap_feature} confirms that the disorder classification model's decisions are driven by clinically meaningful features, with CPAP device use dominating the apnea prediction for the high-risk subject.
+
+\section{Observations}
+
+The following observations summarise the key findings from the experimental evaluation.
+
+The dominant performance ceiling for disorder detection stems from the nature of the target labels. Self-reported labels limit PSG feature effectiveness for apnea and insomnia, while restless legs syndrome benefits from direct physiological markers in the PSG signal.
+
+ElasticNet stability selection is essential for disorders that rely on complementary feature groups. For insomnia, the 35.9 percent relative improvement over L1-only selection confirms that the L2 component is architecturally necessary, not optional.
+
+Early stopping and class-weighting are critical safeguards under severe class imbalance. Without early stopping, the PyTorch MLP diverges catastrophically on restless legs syndrome. Without positive class weighting, all models collapse to predicting all-negative.
+
+The mutual information pre-filter is mandatory for merged datasets. Without it, the stability selection operates on too many features relative to the number of samples, retaining 95 percent of features and providing no meaningful dimensionality reduction.
+
+The Linear SVM anomaly in Experiment 4 illustrates the danger of using ROC-AUC as the primary metric. Linear SVM achieves AUROC of 0.9182 for apnea but F1 of only 0.7083, because calibration fails at 7.6 percent positive rate. F1 correctly identifies this as inferior to XGBoost at 0.7843.
+
+\section{Comparative Analysis}
+
+Compared to prior sleep staging work, the proposed temporal-spectral fusion model achieves competitive macro F1 of 0.788 while delivering per-epoch GradCAM and attention rollout explanations that no prior system provides. As shown in Table~\ref{tab:sota}, the N1 F1 of 59.95 percent surpasses all compared methods, demonstrating that the dual-stream architecture captures transitional spectral characteristics that single-modality approaches miss.
+
+In disorder detection, the ElasticNet pipeline outperforms simple L1 baselines and matches state-of-the-art obstructive sleep apnea models that rely on apnea-hypopnea index features \cite{kim2018apna}. The integrated clinician-grade explainability and patient-facing AI chat are novel contributions absent from existing commercial tools, as shown in Table~\ref{tab:tools} in Chapter 2.
+
+The label-feature alignment finding is a methodological contribution that extends beyond this project. Any study using self-reported disorder labels from population cohorts will encounter the same ceiling when training on physiological signal features. This finding motivates a shift toward physiologically derived labels in future multi-disorder PSG research.

@@ -1,0 +1,72 @@
+Review
+Wearable Artificial Intelligence for Sleep Disorders: Scoping
+Review
+Sarah Aziz1, MSc; Amal A M Ali2,3, MSc; Hania Aslam1, MSc; Alaa A Abd-alrazaq1, PhD; Rawan AlSaad1, PhD;
+Mohannad Alajlani4, PhD; Reham Ahmad4, MSc; Laila Khalil5, MD; Arfan Ahmed1, PhD; Javaid Sheikh1, MD
+1AI Center for Precision Health, Weill Cornell Medicine-Qatar, Doha, Qatar
+2College of Science and Engineering, Hamad Bin Khalifa University, Doha, Qatar
+3Social and Economic Survey Research Institute, Qatar University, Doha, Qatar
+4Institute of Digital Healthcare, University of Warwick, Warwick, United Kingdom
+5Weill Cornell Medicine-Qatar, Doha, Qatar
+Corresponding Author:
+Sarah Aziz, MSc
+AI Center for Precision Health
+Weill Cornell Medicine-Qatar
+Education City, Street 2700
+Doha
+Qatar
+Phone: 974 44928827
+Email: saa4038@qatar-med.cornell.edu
+Abstract
+Background: Worldwide, 30%-45% of adults have sleep disorders, which are linked to major health issues such as diabetes
+and cardiovascular disease. Long-term monitoring with traditional in-lab testing is impractical due to high costs. Wearable artificial
+intelligence (AI)–powered solutions offer accessible, scalable, and continuous monitoring, improving the identification and
+treatment of sleep problems.
+Objective: This scoping review aims to provide an overview of AI-powered wearable devices used for sleep disorders, focusing
+on study characteristics, wearable technology features, and AI methodologies for detection and analysis.
+Methods: Seven electronic databases (MEDLINE, PsycINFO, Embase, IEEE Xplore, ACM Digital Library, Google Scholar,
+and Scopus) were searched for peer-reviewed literature published before March 2024. Keywords were selected based on 3
+domains: sleep disorders, AI, and wearable devices. The primary selection criterion was the inclusion of studies that utilized AI
+algorithms to detect or predict various sleep disorders using data from wearable devices. Study selection was conducted in 2
+steps: first, by reviewing titles and abstracts, followed by full-text screening. Two reviewers independently conducted study
+selection and data extraction, resolving discrepancies by consensus. The extracted data were synthesized using a narrative
+approach.
+Results: The initial search yielded 615 articles, of which 46 met the eligibility criteria and were included in the final analysis.
+The majority of studies focused on sleep apnea. Wearable AI was widely deployed for diagnosing and screening disorders;
+however, none of the studies used it for treatment. Commercial devices were the most commonly used type of wearable technology,
+appearing in 30 out of 46 (65%) studies. Among these, various brands were utilized rather than a single large, well-known brand;
+19 (41%) studies used wrist-worn devices. Respiratory data were used by 25 of 46 (54%) studies as the primary data for model
+development, followed by heart rate (22/46, 48%) and body movement (17/46, 37%). The most popular algorithm was the
+convolutional neural network, adopted by 17 of 46 (37%) studies, followed by random forest (14/46, 30%) and support vector
+machines (12/46, 26%).
+Conclusions: Wearable AI technology offers promising solutions for sleep disorders. These devices can be used for screening
+and diagnosis; however, research on wearable technology for sleep disorders other than sleep apnea remains limited. To statistically
+synthesize performance and efficacy results, more reviews are needed. Technology companies should prioritize advancements
+such as deep learning algorithms and invest in wearable AI for treating sleep disorders, given its potential. Further research is
+necessary to validate machine learning techniques using clinical data from wearable devices and to develop useful analytics for
+data collection, monitoring, prediction, classification, and recommendation in the context of sleep disorders.
+J Med Internet Res 2025 | vol. 27 | e65272 | p. 1
+https://www.jmir.org/2025/1/e65272
+(page number not for citation purposes)
+Aziz et al
+JOURNAL OF MEDICAL INTERNET RESEARCH
+XSL•FO
+RenderX
+(J Med Internet Res 2025;27:e65272) doi: 10.2196/65272
+KEYWORDS
+sleep disorders; wearable devices; artificial intelligence; machine learning; scoping review
+Introduction
+Background
+Sleep is a fundamental biological process essential for
+maintaining overall health and well-being. It is a dynamic state
+in which the brain processes daily experiences, promotes
+synaptic plasticity, and supports physical functions. During
+sleep, the brain and body engage in recovery, repair, and
+preparation for the next day [1]. Sufficient sleep is crucial for
+mood stability, cognitive function, and overall health. Both
+sleep quantity and quality are vital for optimal functioning of
+the body and mind [2]. The National Sleep Foundation defines
+optimal sleep quantity for adults as 7-9 hours per night [3],
+while sleep quality is characterized by factors such as minimal
+interruptions, appropriate sleep onset latency (typically under
+30 minutes), and a sign

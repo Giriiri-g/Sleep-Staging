@@ -1,7 +1,7 @@
 ---
 name: "research-context-finder"
 description: "Use this agent when the research section writer needs to locate relevant code, results, or experimental data from the codebase. This agent should be called proactively before writing research sections to gather necessary context.\\n\\nExamples:\\n<example>\\nContext: User is writing a methods section and needs to understand the feature extraction pipeline.\\nuser: \"I need to write about the PSG feature extraction methodology\"\\nassistant: \"Let me use the research-context-finder agent to locate the relevant code files and extract the key methodology details\"\\n<Agent tool call to research-context-finder>\\n</example>\\n<example>\\nContext: User needs experimental results from the results folder for a results section.\\nuser: \"What were the classification performance metrics from our experiments?\"\\nassistant: \"I'll use the research-context-finder agent to search the results folder for experimental logs and performance metrics\"\\n<Agent tool call to research-context-finder>\\n</example>\\n<example>\\nContext: User is writing about model architecture and needs details from model.py.\\nuser: \"I need the transformer architecture details for the paper\"\\nassistant: \"Let me use the research-context-finder agent to extract the model architecture specifications from model.py\"\\n<Agent tool call to research-context-finder>\\n</example>"
-model: sonnet
+model: inherit
 color: orange
 memory: project
 ---

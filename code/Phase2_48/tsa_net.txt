@@ -1,0 +1,153 @@
+1008
+IEEE TRANSACTIONS ON NEURAL SYSTEMS AND REHABILITATION ENGINEERING, VOL. 31, 2023
+A Temporal-Spectral Fused and Attention-Based
+Deep Model for Automatic Sleep Staging
+Guidan Fu , Yueying Zhou , Peiliang Gong , Pengpai Wang , Wei Shao,
+and Daoqiang Zhang , Senior Member, IEEE
+Abstract— Sleep staging is a vital process for evaluating
+sleep quality and diagnosing sleep-related diseases. Most
+of the existing automatic sleep staging methods focus on
+time-domain information and often ignore the transforma-
+tion relationship between sleep stages. To deal with the
+above problems, we propose a Temporal-Spectral fused
+and Attention-based deep neural Network model (TSA-Net)
+for automatic sleep staging, using a single-channel elec-
+troencephalogram (EEG) signal. The TSA-Net is composed
+of a two-stream feature extractor, feature context learning,
+and conditional random field (CRF). Specifically, the two-
+stream feature extractor module can automatically extract
+and fuse EEG features from time and frequency domains,
+considering that both temporal and spectral features can
+provide abundant distinguishing information for sleep stag-
+ing. Subsequently, the feature context learning module
+learns the dependencies between features using the multi-
+head self-attention mechanism and outputs a preliminary
+sleep stage. Finally, the CRF module further applies transi-
+tion rules to improve classification performance. We eval-
+uate our model on two public datasets, Sleep-EDF-20 and
+Sleep-EDF-78. In terms of accuracy, the TSA-Net achieves
+86.64% and 82.21% on the Fpz-Cz channel, respectively.
+The experimental results illustrate that our TSA-Net can
+optimize the performance of sleep staging and achieve
+better staging performance than state-of-the-art methods.
+Index Terms— Sleep staging, EEG, feature fusion, multi-
+head attention, conditional random field.
+I. INTRODUCTION
+G
+OOD sleep is a crucial human physiological activity
+intimately related to health. Studies have shown that
+sleep is inextricably linked to human metabolism [1], immune
+Manuscript received 5 August 2022; revised 12 December 2022;
+accepted 16 January 2023. Date of publication 23 January 2023; date of
+current version 3 February 2023. This work was supported in part by the
+National Natural Science Foundation of China under Grant 62136004,
+Grant 61876082, and Grant 61732006; in part by the Research Fund
+for International Young Scientists under NSFC Grant 62050410348;
+and in part by the National Key Research and Development Program
+of China under Grant 2018YFC2001600 and Grant 2018YFC2001602.
+(Guidan Fu and Yueying Zhou are co-first authors.) (Corresponding
+author: Daoqiang Zhang.)
+The authors are with the MIIT Key Laboratory of Pattern Analysis
+and
+Machine
+Intelligence,
+College
+of
+Computer
+Science
+and
+Technology,
+Nanjing
+University
+of
+Aeronautics
+and
+Astronautics,
+Nanjing 211106, China (e-mail: fuguidan@nuaa.edu.cn; zhouyueying@
+nuaa.edu.cn;
+plgong@nuaa.edu.cn;
+pengpaiwang@nuaa.edu.cn;
+shaowei20022005@nuaa.edu.cn; dqzhang@nuaa.edu.cn).
+Digital Object Identifier 10.1109/TNSRE.2023.3238852
+system [2], and memory [3]. Narcolepsy, sleep apnea syn-
+drome, and insomnia are a few examples of sleep-related prob-
+lems [4]. With the rapid development of modern civilization,
+people are having trouble in sleeping and are increasingly
+concerned about the quantity and quality of their sleep.
+Sleep staging is essential to evaluating the quality of sleep.
+Typically, sleep specialists use acquisition equipment for sleep
+staging based on the entire night polysomnogram (PSG) [5]
+of the patient, which usually includes electroencephalogram
+(EEG), electromyogram (EMG), electrooculogram (EOG), and
+electrocardiogram (ECG). The manual sleep staging methods
+generally divide the PSG into 30-second segments (called
+epochs), and then the segments are manually classified by
+specialists based on relevant criteria. The existing criteria for
+evaluating the sleep stage include the American Academy of
+Sleep Medicine standard (AASM) [6], and the Rechtschaffe
+and Kales (R&K) rule [7]. The R&K rule divides the sleep
+process into six stages, including wake stage (W), rapid sleep
+eye movement stage (REM), S1, S2, S3, and S4 of non-
+rapid eye movement stage. The AASM rule combines S3
+and S4 into N3, including W, REM, N1, N2, and N3 of
+non-rapid eye movement stage. According to the above rules,
+sleep specialists categorize the stages of sleep based on the
+distinctive waveforms and frequency characteristics that each
+stage of sleep exhibits. For instance, K-complex wave and
+sleep spindles wave are evident in the N2 stage, and the δ wave
+is more prevalent in the N3 stage of deep sleep. Similarly, the
+α wave is prominent during the W stage.
+Generally, manual labeling and diagnosis in sleep stag-
+ing need skilled and experienced specialists, which is time-
+consuming and laborious. Even if some specialists have
+received training, there are still certain biases in the manual
+sleep staging procedure. Besides, various specialists may have
+varying views on how the same PSG data should be evaluated.
+Considering these factors, it is important to construct objective
+and automatic sleep staging methods.
+In recent years, some automatic sleep staging techniques
+have gained popularity with the growth of machine learning.
+Traditional machine learning of sleep staging requires hand-
+crafted feature extraction and classifier selection. Firstly, the
+data are preprocessed and filtered to obtain clean and non-
+impurity signals, then feature extraction is carried out on the
+preprocessed signals, and valuable features are selected and
+This work is licensed under a Creative Commons Attribution 4.0 License. For more information, see https://creativecommons.org/licenses/by/4.0/
+FU et al.: TEMPORAL-SPECTRAL FUSED AND ATTENTION-BASED DEEP MODEL FOR AUTOMATIC SLEEP STAGING
+1009
+input into the classifier to execute sleep staging. These hand-
+crafted features include time-domain features [8], frequency-
+domain features [9], and time-frequency domain features [10].
+In addition, various classifiers are used for sleep stages,
+such as support vector machines (SVM) [11], random forests
+(RF) [12], and adaptive boosting (AdaBoost) [13]. For
+instance, Guo et al. [11] proposed a sleep staging method
+using an SVM classifier based on the Hilbert-Huang transform
+and sample entropy features. In [14], the authors obtained
+the maximized feature based on multi-scale principal com-
+ponent analysis and discrete wavelet transform to realize
+the classification of sleep stages by integrating the RotSVM
+classifier. Based on the time domain and frequency domain,
+Timplalexis et al. [15] extracted the mixed features and tested
+multiple classifiers to generate the final classifier for sleep
+staging with the voting idea. Hassan et al. [16] used the
+tunable-Q wavelet transform to extract the features of sleep
+EEG signals and implemented a decision support system based
+on bootstrap aggregating to complete the classification of
+2-state to 6-state sleep stages. In [17], the authors staged sleep
+by using several tiny classifiers and employed overlapping
+sampling to enhance the quality of the data samples.
+Feature selection requires a certain amount of expertise
+and has limited performance. Deep learning can automatically
+extract meaningful features of polysomnography and further
+perform end-to-end sleep stage classification, gaining more
+and more interest and attempts. Existing methods can be
+categorized by model features into temporal domain feature-
+based, spectral domain feature-based, and other spatial feature-
+based or multimodal methods. Most of the methods are based
+on temporal domain features, and the model input is the raw
+temporal EEG sequence. For instance, based on the raw EEG
+signals, the convolutional neural network (CNN) was widely
+used in discriminative feature extraction to realize sleep stage
+classification [18], [19], [20]. To further learn the temporal
+correlation information, Supratak et al. 

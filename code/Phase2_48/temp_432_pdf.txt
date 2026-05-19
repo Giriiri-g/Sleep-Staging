@@ -1,0 +1,71 @@
+ 
+ 
+2025 International Conference on Intelligent Computing 
+July 26-29, Ningbo, China 
+https://www.ic-icc.cn/2025/index.php 
+ 
+MHASSNet: A Deep Neural Network-based Automatic 
+Sleep Staging Model Using Hybrid Attention Mechanism 
+and State Space Model 
+Zhentao Huang1, Shanwen Zhang3 and Yin Tian1,2[✉] 
+1 School of Computer Science and Technology, Chongqing University of Posts and 
+Telecommunications, Chongqing 400065, China 
+2 School of Life and Health Information Science and Engineering, Chongqing University of 
+Posts and Telecommunications, Chongqing 400065, China 
+3 Xi’an Key Laboratory of High Precision Industrial Intelligent Vision Measurement Technol-
+ogy, School of Electronic Information, Xijing University, Xi’an 710123, China 
+✉Corresponding author:tianyin@cqupt.edu.cn 
+Abstract. Automatic classification of sleep stages is an important method for 
+assessing sleep quality. This paper introduces a sleep staging network 
+(MHASSNet) that combines multi-scale convolution, hybrid attention mecha-
+nism, and state-space model, aiming to improve the accuracy of sleep stage clas-
+sification for more effective evaluation of sleep quality. The model is character-
+ized by its hybrid attention mechanism and multi-modal signal processing capa-
+bilities. First, MHASSNet uses a multi-scale convolutional neural network 
+(MSCNN) to extract low-frequency and high-frequency features. Next, it em-
+ploys a hybrid attention module (MAM) that integrates spatial and channel atten-
+tion mechanisms to capture the significant spatiotemporal dependencies between 
+these features. Additionally, the state-space model (SSM) is used to enhance the 
+understanding of temporal contextual information. Experimental results show 
+that when tested on two public datasets, MHASSNet achieves significant results 
+across various evaluation metrics, demonstrating its superior performance and 
+application potential in automatic sleep stage classification. 
+Keywords: Sleep Stage, Multi Scale Convolution, Attention Mechanism 
+1 
+Introduction 
+Sleep accounts for about one-third of a person's life and plays a crucial role in main-
+taining overall human health. With the acceleration of modern life rhythms and changes 
+in lifestyle, various sleep disorders have become significant medical and public health 
+issues, receiving increasing attention [1]. Sleep disorders can severely affect an indi-
+vidual's cognitive abilities, attention span, and mental state. Chronic sleep disturbances 
+can even lead to hypertension, coronary artery disease, and other cardiovascular and 
+cerebrovascular diseases [2]. Therefore, identifying and addressing patients' sleep dis-
+orders to improve sleep quality and ensure overall physical and mental health is critical. 
+ 
+Currently, sleep monitoring, sleep structure analysis, and sleep quality assessment have 
+become research hotspots, particularly sleep staging, which is essential for evaluating 
+sleep structure and diagnosing sleep-related disorders.In the field of sleep medicine, 
+polysomnography (PSG) monitors are the 'gold standard' for diagnosing sleep disorders 
+[3]. Polysomnography (PSG) is an important tool used to record various physiological 
+signals, including electroencephalogram (EEG), electrooculogram (EOG), electromy-
+ogram (EMG), and electrocardiogram (ECG), playing a key role in sleep research [4-
+5]. In traditional methods, sleep specialists or doctors first segment the PSG data col-
+lected overnight into 30-second non-overlapping segments, and then manually analyze 
+these segments according to authoritative standards (such as the Rechtschaffen and 
+Kales standards (R&K) [6] or the American Academy of Sleep Medicine (AASM) 
+standards [7]), categorizing them into different sleep stages. According to the AASM 
+standards, sleep stages are typically divided into five categories: Wake (W), Non-Rapid 
+Eye Movement 1 (N1), Non-Rapid Eye Movement 2 (N2), Non-Rapid Eye Movement 
+3 (N3), and Rapid Eye Movement Sleep (REM). Sleep specialists typically use these 
+standards to manually classify the sleep stages, which is not only a labor-intensive pro-
+cess but also prone to subjective bias [8]. Therefore, automatic sleep staging is a more 
+effective alternative to manual methods, with greater clinical value [9]. 
+Simple deep learning networks cannot capture the time-varying features and time 
+series information in sleep signals. To overcome these limitations, Supratak et al. [10] 
+proposed a deep learning model, DeepSleepNet, which uses convolutional neural net-
+works to extract time-invariant features and utilizes bidirectional long short-term 
+memory to automatically learn the transition rules between sleep stages from EEG 
+epochs. However, it primarily employs a one-to-one input-output model, aiming to la-
+bel a single target sleep epoch at a time, but neglects the transition rules between dif-
+ferent sleep stages. To address this issue, Phan et al. [11] proposed the SeqSleepNet 
+hierarchical recurrent neural network,

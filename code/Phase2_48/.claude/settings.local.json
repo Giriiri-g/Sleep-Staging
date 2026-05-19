@@ -1,5 +1,17 @@
 {
   "permissions": {
+    "allow": [
+      "Read(//c/PS/Sleep-Staging/results/sleep staging/temporalv1/**)",
+      "Read(//c/PS/Sleep-Staging/results/sleep staging/spectralv1/**)",
+      "Read(//c/PS/Sleep-Staging/results/sleep staging/temporal spectral fusion/**)",
+      "Bash(ls -la *.txt)",
+      "Bash(python -c \"import pdfplumber; doc=pdfplumber.open\\('Explainable vision transformer forvisualsleepstagingmultimidalpsgsignals.pdf'\\); [print\\(page.extract_text\\(\\)\\) for page in doc.pages]\")",
+      "Bash(python -c \"import pdfplumber; doc=pdfplumber.open\\('2105.11043v3.pdf'\\); [print\\(page.extract_text\\(\\)\\) for page in doc.pages]\")",
+      "Bash(pdftotext:*)",
+      "Bash(python *)",
+      "Bash(grep -o \"\\\\\\\\cite{[^}]*}\" main.tex)",
+      "Bash(sed 's/ //g')"
+    ],
     "additionalDirectories": [
       "C:\\PS\\Sleep-Staging\\unsorted\\Sleep disorder detection"
     ]

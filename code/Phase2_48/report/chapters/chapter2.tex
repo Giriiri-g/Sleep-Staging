@@ -1,0 +1,111 @@
+% Chapter 2 — Literature Review / Existing System
+
+\section{Existing System Study}
+
+\subsection{Review of Existing Research Work}
+
+\subsubsection{Automated Sleep Staging}
+
+Early automated sleep staging systems relied on handcrafted feature extraction paired with traditional classifiers. Guo et al.\ \cite{guo2017hilbert} proposed a method using the Hilbert-Huang transform and sample entropy features with support vector machine classifiers, while Hassan et al.\ \cite{hassan2017decision} utilised tunable Q-factor wavelet transform with bootstrap aggregating for multi-stage classification. These approaches typically achieved accuracies ranging from 75 to 85 percent on standard benchmarks but struggled with ambiguous stages such as N1. The fundamental limitation of such methods lay in their dependence on human-engineered features, which required substantial domain expertise and often failed to capture complex physiological patterns.
+
+The introduction of deep learning transformed the field by enabling end-to-end feature learning from raw signals. Supratak et al.\ \cite{supratak2017deepsleepnet} proposed DeepSleepNet, which combined convolutional neural networks and bidirectional long short-term memory architectures to extract time-invariant features while learning transition rules between sleep stages. Phan et al.\ \cite{phan2018deepsleepnet} extended this with SeqSleepNet, a hierarchical recurrent neural network operating on sequences of epochs rather than individual samples. While these methods improved accuracy, they functioned as black boxes, providing no mechanism for clinicians to understand model predictions.
+
+Contemporary approaches have increasingly recognised that sleep stages exhibit distinguishing characteristics in both temporal and spectral domains. Fu et al.\ \cite{fu2023tsanet} proposed TSA-Net, a two-stream architecture extracting features simultaneously from raw EEG waveforms and spectral representations, followed by multi-head self-attention and conditional random fields for transition rule modelling. Their approach achieved 86.6 percent accuracy on Sleep-EDF-20, demonstrating that temporal-spectral fusion consistently outperformed single-modality approaches. Cong et al.\ \cite{cong2025bits} advanced this paradigm with BiTS-SleepNet, introducing cross-attention fusion that dynamically weighted temporal and spectral contributions per epoch. Their two-stage architecture combining dual-stream feature extraction with bidirectional gated recurrent units and conditional random field transition rules reached 88.5 percent accuracy on Sleep-EDF-20.
+
+Sun and Zhao \cite{sun2025adg} proposed ADG-SleepNet, combining multi-scale dilated temporal convolutions with adaptive gating and squeeze-excitation attention, achieving 87.1 percent accuracy while maintaining computational efficiency. Huang et al.\ \cite{huang2025mhas} introduced MHASSNet, which integrated multi-scale convolution, hybrid attention mechanisms, and state space models for enhanced temporal contextual understanding. These works established hybrid convolutional-attention architectures as the dominant paradigm for high-performance sleep staging.
+
+While accuracy improved, the interpretability challenge remained largely unaddressed until recent years. Phan et al.\ \cite{phan2022sleeptransformer} proposed SleepTransformer, the first pure transformer-based sleep staging model, which leveraged self-attention scores for interpretability at both epoch and sequence levels. Their entropy-based uncertainty quantification enabled deferral of ambiguous epochs to human experts, with experiments showing that approximately 90 percent of epochs per night could be confidently automated. Lee et al.\ \cite{lee2025sleepxvit} extended explainability to multimodal PSG inputs with SleepXViT, using layer-wise relevance propagation to generate pixel-level heatmaps aligned with AASM clinical guidelines.
+
+Figure~\ref{fig:lit_screening} presents the systematic literature screening process used to identify the papers reviewed in this chapter.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.85\linewidth]{literature review paper screening figure.pdf}
+    \caption{Systematic literature screening process for the review of automated sleep staging and disorder detection methods. The screening covers database search, title and abstract filtering, full-text review, and final inclusion criteria.}
+    \label{fig:lit_screening}
+\end{figure}
+
+\subsubsection{Sleep Disorder Detection}
+
+Most disorder detection literature focuses exclusively on obstructive sleep apnea, using the apnea-hypopnea index computed from respiratory channels as both the detection target and the primary feature. Kim et al.\ \cite{kim2018apna} used single-channel oxygen saturation for obstructive sleep apnea screening with area under the receiver operating characteristic curve of 0.87 but without staging integration. Rashid et al.\ \cite{rashid2022osa} proposed a lightweight convolutional neural network for obstructive sleep apnea detection using single-lead ECG, achieving 94.7 percent per-recording accuracy through heart rate variability and ECG-derived respiration features.
+
+Seifollahi et al.\ \cite{seifollahi2023osarls} addressed co-morbid obstructive sleep apnea and restless legs syndrome detection using synchrosqueezing wavelet transform of ECG and EMG signals, with multimodal fusion achieving 94.1 percent accuracy compared to 89.2 percent for ECG alone. Their work demonstrated that multi-modal fusion consistently outperformed single-modality approaches for disorder detection.
+
+Insomnia detection presents distinct challenges due to its cognitive and behavioural components. Karthikeyan et al.\ \cite{karthikeyan2023insomnet} proposed InsomNet, utilising continuous wavelet transform of ECG signals with ResNet-LSTM architectures to achieve 93.8 percent accuracy on hospital datasets. However, they noted that questionnaire-derived insomnia labels created fundamental alignment gaps with physiological signals, limiting the achievable performance from cardiac features alone.
+
+Few studies have attempted multi-disorder classification within unified frameworks. Islam et al.\ \cite{islam2024multishel} proposed a stacked heterogeneous ensemble learning approach combining convolutional neural networks, bidirectional LSTM, and XGBoost classifiers with SHAP explainability, achieving 96.3 percent accuracy for apnea and 94.8 percent for insomnia detection. Kumar et al.\ \cite{kumar2021lstmcnn} demonstrated LSTM-CNN hybrid architectures for four-disorder classification, attaining 88.5 percent overall accuracy using multi-modal PSG inputs. However, these ensemble and hybrid approaches incurred substantial computational costs and lacked integrated uncertainty quantification suitable for clinical workflows.
+
+The class distribution of sleep disorders in the MESA dataset used in this work is shown in Figure~\ref{fig:disorder_dist}. The severe imbalance, with positive rates of 4.5 to 8.9 percent across the three targets, motivates the use of F1 score as the primary evaluation metric and positive class weighting in all classifiers.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.75\linewidth]{sleep disorder distribution.pdf}
+    \caption{Class distribution of sleep disorders in the MESA Sleep Study dataset. Positive rates are 7.6 percent for apnea, 6.3 percent for insomnia, and 4.5 percent for restless legs syndrome, reflecting the severe class imbalance that motivates F1 score as the primary evaluation metric.}
+    \label{fig:disorder_dist}
+\end{figure}
+
+\subsubsection{Explainability in Sleep AI}
+
+Selvaraju et al.\ \cite{selvaraju2017gradcam} introduced Gradient-weighted Class Activation Mapping, which computes the gradient of the class score with respect to convolutional feature maps to produce spatially localised importance maps. This method has been applied to EEG classification for epilepsy and emotion recognition but rarely for sleep staging. Attention visualisation in sleep transformers is described in SleepTransformer \cite{phan2022sleeptransformer} but is not connected to a clinical workflow with automated flagging. Monte Carlo Dropout uncertainty quantification, introduced by Gal and Ghahramani \cite{gal2016dropout}, has been applied to medical imaging but not to PSG epoch-level confidence scoring. No prior system integrates all three methods with automated flagging and a patient-facing explanation layer.
+
+\subsection{Review of Existing Tools and Products}
+
+The following table summarises the key commercial and research tools available for automated sleep analysis, comparing their scope, primary metric, and limitations relative to the proposed system.
+
+\begin{table}[h]
+\centering
+\caption{Comparison of existing sleep analysis tools and products.}
+\label{tab:tools}
+\begin{tabular}{p{3.2cm}p{2.8cm}p{2.2cm}p{5cm}}
+\toprule
+Tool / Product & Scope & Key Metric & Limitation vs This Work \\
+\midrule
+ApneaLink Air (ResMed) & Apnea only & AHI, ODI & No ML, no staging, no patient UI \\
+Alice NightOne (Philips) & Apnea only & AHI, SpO2 & Hardware-locked, no explainability \\
+Nox T3s & Apnea only & AHI, RDI & No staging, no disorder beyond apnea \\
+Somnolyzer (Siesta) & PSG staging & Stage accuracy 85\% & Proprietary, no patient-facing explanation \\
+SleepSafe AI & Apnea risk & Risk category & Wearable-only, no PSG, black-box \\
+This Work (Project 48) & Apnea, Insomnia, RLS + Staging & F1 = 0.784/0.388/0.182 & Unified, explainable, dual-audience outputs \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The table demonstrates that no existing commercial or research tool simultaneously addresses multi-disorder detection, integrates sleep staging with disorder classification, provides clinician-grade explainability, and delivers patient-accessible risk communication. This project fills all four gaps in a single unified research framework.
+
+\section{Research Gap and Scope for Improvement}
+
+\subsection{Gaps Addressed in This Work}
+
+The following limitations persist in existing systems and are directly addressed by this project.
+
+The first gap is the absence of a multi-disorder unified pipeline. No existing system addresses obstructive sleep apnea, insomnia, and restless legs syndrome simultaneously using a shared feature extraction stage and disorder-specific classifiers. Each condition is treated in isolation, preventing the system from capturing the co-morbidity patterns that are clinically prevalent.
+
+The second gap is the uncharacterised label-feature alignment ceiling. The fundamental mismatch between self-reported disorder labels and physiological signal features has not been explicitly identified or quantified in any prior multi-disorder study. This project empirically demonstrates a 4.3-fold performance gap between questionnaire and PSG features for apnea classification, explained by the fact that self-reported labels encode diagnosis-seeking behaviour rather than raw physiology.
+
+The third gap is the absence of integrated two-tier explainability. GradCAM epoch localisation, attention rollout, Monte Carlo Dropout confidence scoring, and automated review flagging have not been combined into a unified clinical workflow in any prior system.
+
+The fourth gap is the lack of patient-facing AI explanation. No prior research system translates probabilistic PSG predictions into plain-English risk scores, natural-language counterfactuals, SHAP-based feature importance, and conversational AI guidance in a single integrated output.
+
+The fifth gap is the failure of L1-only feature selection for multi-disorder detection. Pure L1 regularisation selects only standalone strong predictors and systematically discards features that are individually weak but jointly informative. This project demonstrates that ElasticNet stability selection, which combines L1 sparsity with L2 group retention, yields a 35.9 percent relative improvement in insomnia F1 score.
+
+\subsection{Gaps Planned for Future Work}
+
+The following gaps are identified but not addressed in the current phase. Physiological label creation from signal thresholds, specifically apnea-hypopnea index greater than 15 for apnea and periodic limb movement index greater than 15 for restless legs syndrome, would eliminate the self-reported label ceiling. Raw EMG time-series modelling for restless legs syndrome, multi-task learning with a shared encoder and three disorder-specific heads, and cross-dataset generalisation on SHHS and CHAT cohorts are all planned for the next phase.
+
+\section{Problem Statement and Contributions}
+
+\subsection{Problem Statement}
+
+Existing automated PSG analysis systems are single-task, black-box, and produce outputs accessible only to specialists, creating a systematic gap between diagnostic capability and patient-accessible sleep health intelligence. No system simultaneously stages sleep, detects multiple disorders with appropriate feature selection, provides clinician-grade signal-level explainability, and delivers patient-facing personalised risk communication.
+
+\subsection{Research Contributions}
+
+This project makes four concrete research contributions.
+
+The first contribution is a temporal-spectral fusion transformer architecture for five-class sleep staging. The architecture combines an Adaptive Atrous Pyramid temporal encoder with a 34-dimensional spectral encoder, achieving staging accuracy approaching state-of-the-art on the Sleep-EDF Expanded benchmark with notably strong N1 detection at 59.95 percent F1, surpassing specialised architectures including BiTS-SleepNet at 50.23 percent and SleepTransformer at 48.5 percent.
+
+The second contribution is an ElasticNet bootstrap stability selection pipeline for multi-disorder PSG feature selection. The pipeline demonstrates that L1 plus L2 regularisation outperforms L1-only selection by 35.9 percent for insomnia through complementary feature group retention, confirming the hypothesis that insomnia requires combinations of sleep continuity metrics that are individually weak but jointly predictive.
+
+The third contribution is the empirical characterisation of the label-feature alignment ceiling in population-based PSG studies. The project demonstrates a 4.3-fold performance ratio between questionnaire and signal features for apnea classification and explains this gap through the construct mismatch between self-reported diagnostic labels and raw physiological measurements.
+
+The fourth contribution is the design and implementation of a two-tier explainability pipeline that serves clinicians and patients with appropriately tailored outputs. Clinicians receive GradCAM event localisation, Monte Carlo Dropout confidence scoring, and attention rollout influence scores. Patients receive accessible risk scores, SHAP-based feature importance, natural-language counterfactual explanations, and a conversational AI interface powered by the Groq Cloud LLM API. This dual-audience design is a novel contribution absent from existing automated sleep analysis research.

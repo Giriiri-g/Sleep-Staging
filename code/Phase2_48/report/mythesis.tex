@@ -1,0 +1,216 @@
+%--AMRITA UNIVERSITY B.Tech latex template--%
+
+\documentclass[a4paper, 12pt]{report}
+\usepackage[margin=0.8in]{geometry}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{bold-extra}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage[english]{babel}
+\usepackage[autostyle, english = american]{csquotes}
+\MakeOuterQuote{"}
+\usepackage{setspace}
+\onehalfspacing
+\graphicspath{{images/}}
+\usepackage{amsthm}
+\usepackage{array}
+\usepackage{cite}
+\usepackage{longtable}
+\usepackage{fancyhdr}
+\usepackage{titletoc}
+\usepackage{booktabs}
+\usepackage{subcaption}
+\DeclareGraphicsExtensions{.png,.jpg,.jpeg,.pdf}
+\theoremstyle{definition}
+\newtheorem{Definition}{Definition}[section]
+
+%-------------------------------------------------------------
+% title page
+\begin{document}
+	\pagenumbering{gobble}
+	\thispagestyle{empty}
+	\begin{large}
+		\begin{center}
+			{\Large\bfseries{EXPLAINABLE DEEP LEARNING APPROACH FOR SLEEP DISORDER DETECTION AND PERSONALISED LIFESTYLE RECOMMENDATIONS}}\\
+			\vspace{1.3cm}
+			A PROJECT REPORT \\
+			\vspace{.1cm}
+			Submitted in partial fulfillment for the Degree of\\
+			\vspace{.1cm}
+			Bachelor of Technology in\\
+			Computer Science and Engineering (Artificial Intelligence)\\
+			\vspace{.1cm}
+			under the School of Computing\\
+			\vspace{1cm}
+
+			\normalsize Submitted by \\
+\begin{table}[h]
+\centering
+\begin{tabular}{lr}\hline \\
+Register No & Names of Students \\ \\ \hline
+\\
+CB.EN.U4AIE22019 & Girish Sundararajan \\
+CB.EN.U4AIE22023 & Harishankar Binu Nair \\ \\ \hline
+\end{tabular}
+\end{table}
+
+\vfill
+			\includegraphics[scale=0.7]{univA.png}\\
+			DEPARTMENT OF COMPUTER SCIENCE AND ENGINEERING\\
+			\Large{\textbf{AMRITA VISHWA VIDYAPEETHAM}}\\
+			{\large Amritapuri Campus (INDIA)}\\
+			\vspace*{.3cm}
+			May 2025
+		\end{center}
+	\end{large}
+
+	%------------------------------------------------------------------------------------
+	% bonafide certificate
+	\newpage
+	\begin{center}
+		{\large Department of Computer Science and Engineering}\\
+		\Large{\textbf{AMRITA VISHWA VIDYAPEETHAM}}\\
+		{\large AMRITAPURI CAMPUS}\\
+		\vspace*{2.2cm}
+		\includegraphics[scale=0.5]{univA.png}\\
+		\vspace*{1.5cm}
+		{\Large \textbf{BONAFIDE CERTIFICATE}}
+	\end{center}
+	\vspace*{.8cm}
+	This is to certify that this is a bonafide record of the project presented by the students whose names are given below during Project Phase II in partial fulfilment of the requirements of the degree of Bachelor of Technology in Computer Science and Engineering (Artificial Intelligence).\\[1.0cm]
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lr}
+Roll No & Names of Students \\ \\ \hline
+\\
+CB.EN.U4AIE22019 & Girish Sundararajan \\
+CB.EN.U4AIE22023 & Harishankar Binu Nair \\
+\end{tabular}
+\end{table}
+
+\begin{flushleft}
+  Dr. Simi Surendran\\
+(Project Guide)\\
+Assistant Professor, Department of Computer Science and Engineering\\
+Amrita Vishwa Vidyapeetham, Amritapuri\\[1cm]
+
+  Project Coordinator\\
+(Project Coordinator)\\
+Department of Computer Science and Engineering\\
+\end{flushleft}
+\begin{flushright}
+Reviewer's Name\\
+(Reviewer)\\
+Designation
+\end{flushright}
+
+	%------------------------------------------------------------------------------------
+	% declaration page
+	\newpage
+
+	\begin{center}
+	    {\large Department of Computer Science and Engineering}\\
+	    \Large{\textbf{AMRITA VISHWA VIDYAPEETHAM}}\\
+	    {\large AMRITAPURI CAMPUS}\\
+	    \vspace*{2.2cm}
+	    \includegraphics[scale=0.5]{univA.png}\\
+	    \vspace*{1.5cm}
+	\end{center}
+	\vspace*{.8cm}
+
+	\begin{center}
+	\textbf{\Large DECLARATION}
+	\end{center}
+
+	\vspace{0.8cm}
+
+	We, Girish Sundararajan (CB.EN.U4AIE22019) and Harishankar Binu Nair (CB.EN.U4AIE22023), hereby declare that this project entitled ``Explainable Deep Learning Approach for Sleep Disorder Detection and Personalised Lifestyle Recommendations'' is a record of the original work done by us under the guidance of Dr.\ Simi Surendran, Dept.\ of Computer Science and Engineering, Amrita Vishwa Vidyapeetham, that this work has not formed the basis for any degree/diploma/associationship/fellowship or similar awards to any candidate in any university to the best of our knowledge.
+
+	\vspace{1.5cm}
+
+	\noindent
+	Place : Amritapuri
+
+	\vspace{0.5cm}
+
+	\noindent
+	Date :
+
+	\vspace{2cm}
+
+	\begin{flushleft}
+	Signature of the student
+	\hfill
+	Signature of the Project Guide
+	\end{flushleft}
+
+	\newpage
+	%-----------------------------------------------------------------------------
+	\clearpage
+	\pagenumbering{roman}
+	\tableofcontents
+
+	\chapter*{Acknowledgements}
+	\addcontentsline{toc}{chapter}{Acknowledgements}
+We express our sincere gratitude to Dr.\ Simi Surendran, our project guide, for her consistent guidance, constructive feedback, and encouragement throughout the duration of this project. Her expertise in machine learning and her willingness to engage with the technical challenges of this work were invaluable.
+
+We thank the Department of Computer Science and Engineering, Amrita Vishwa Vidyapeetham, Amritapuri, for providing the academic environment and resources that made this research possible.
+
+We are grateful to the National Sleep Research Resource (NSRR) for providing licensed access to the MESA Sleep Study dataset, and to PhysioNet for maintaining the Sleep-EDF Expanded dataset as a publicly available benchmark. This work would not have been possible without these open research resources.
+
+We thank Kaggle for providing the GPU compute infrastructure used to train the temporal-spectral fusion model, and Groq Cloud for providing the LLM inference API used in the explainability pipeline.
+
+Finally, we thank our families and friends for their patience and support throughout the course of this project.
+
+	\vspace{1cm}
+	\begin{flushright}
+		GIRISH SUNDARARAJAN\\
+		HARISHANKAR BINU NAIR
+	\end{flushright}
+	\listoffigures
+	\addcontentsline{toc}{chapter}{List of figures}
+	\listoftables
+	\addcontentsline{toc}{chapter}{List of tables}
+	\newpage
+
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+
+Sleep disorders affect a substantial portion of the global population, yet current diagnostic systems fragment care across separate staging and disorder detection pipelines with limited interpretability. Existing deep learning approaches achieve high accuracy but function as black boxes, preventing clinical adoption and patient engagement. This study addresses the need for a unified explainable system supporting both clinical decision making and patient self-management.
+
+An explainable deep learning framework was developed providing unified sleep architecture analysis and disorder risk assessment. The system combines a temporal-spectral fusion model for sleep staging with multi-label classifiers for apnea, insomnia, and restless legs syndrome detection. Explainability methods operate on two levels. For clinicians, attention rollout provides per-epoch temporal influence scores, GradCAM localises signal regions driving predictions, and Monte Carlo dropout quantifies prediction uncertainty to flag cases requiring review. For patients, risk scores present disorder probabilities as percentages, feature importance highlights key contributing factors, counterfactual explanations suggest actionable changes, and a conversational interface powered by a large language model answers questions in plain language.
+
+The framework was evaluated on the Multi-Ethnic Study of Atherosclerosis dataset containing over two thousand polysomnography recordings and the Sleep-EDF Expanded dataset for sleep staging. Sleep staging achieved macro F1 score of 0.788 with accurate detection of wake and deep sleep stages. Disorder detection achieved F1 scores of 0.784 for apnea, 0.388 for insomnia, and 0.182 for restless legs syndrome. ElasticNet stability selection improved insomnia detection by 35.9 percent over standard regularisation by preserving complementary feature groups. The explainability pipeline successfully identified uncertain predictions requiring clinician attention and generated personalised recommendations actionable by patients. Analysis confirmed that self-reported disorder labels align with behavioural features while periodic limb movement markers provide direct physiological signatures for restless legs syndrome.
+
+The proposed framework demonstrates that a unified explainable approach can bridge the gap between accurate automated analysis and clinical utility.
+
+\clearpage
+\pagenumbering{arabic}
+\setcounter{page}{1}
+\chapter{Introduction}
+\input{chapters/introduction}
+\chapter{Literature Review and Existing System}
+\input{chapters/chapter2}
+\chapter{Proposed Work}
+\input{chapters/chapter3}
+\chapter{Experimentation and Result Analysis}
+\input{chapters/chapter4}
+\chapter{Conclusion and Scope for Further Research}
+\input{chapters/conclusion}
+\appendix
+\chapter{Key Code Listings}
+\input{chapters/appendix}
+\chapter{Alignment with UN Sustainable Development Goals}
+\input{chapters/sdg}
+
+\newpage
+\renewcommand{\bibname}{References}
+\bibliographystyle{ieeetr}
+\addcontentsline{toc}{chapter}{References}
+\bibliography{mybib}
+
+\end{document}

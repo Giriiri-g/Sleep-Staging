@@ -1,0 +1,95 @@
+Citation: Urtnasan, E.; Park, J.-U.;
+Lee, J.-H.; Koh, S.-B.; Lee, K.-J. Deep
+Learning for Automatic Detection of
+Periodic Limb Movement Disorder
+Based on Electrocardiogram Signals.
+Diagnostics 2022, 12, 2149. https://
+doi.org/10.3390/diagnostics12092149
+Academic Editor: Seung-Gul Kang
+Received: 10 July 2022
+Accepted: 2 September 2022
+Published: 3 September 2022
+Publisher’s Note: MDPI stays neutral
+with regard to jurisdictional claims in
+published maps and institutional afﬁl-
+iations.
+Copyright:
+© 2022 by the authors.
+Licensee MDPI, Basel, Switzerland.
+This article is an open access article
+distributed
+under
+the
+terms
+and
+conditions of the Creative Commons
+Attribution (CC BY) license (https://
+creativecommons.org/licenses/by/
+4.0/).
+diagnostics
+Article
+Deep Learning for Automatic Detection of Periodic Limb
+Movement Disorder Based on Electrocardiogram Signals
+Erdenebayar Urtnasan 1,†
+, Jong-Uk Park 2,†
+, Jung-Hun Lee 3
+, Sang-Baek Koh 4 and Kyoung-Joung Lee 5,*
+1
+Artiﬁcial Intelligence Big Data Medical Center, Wonju College of Medicine, Yonsei University,
+Wonju 26426, Korea
+2
+Department of Medical Artiﬁcial Intelligence, College of Medical Engineering, Konyang University,
+Daejeon 35365, Korea
+3
+Department of Emergency Medicine, Wonju College of Medicine, Yonsei University, Wonju 26426, Korea
+4
+Department of Preventive Medicine, Wonju College of Medicine, Yonsei University, Wonju 26426, Korea
+5
+Department of Biomedical Engineering, College of Software and Digital Healthcare Convergence,
+Yonsei University, Wonju 26493, Korea
+*
+Correspondence: lkj5809@yonsei.ac.kr; Tel.: +82-33-730-2433
+†
+These authors contributed equally to this work.
+Abstract: In this study, a deep learning model (deepPLM) is shown to automatically detect periodic
+limb movement syndrome (PLMS) based on electrocardiogram (ECG) signals. The designed deepPLM
+model consists of four 1D convolutional layers, two long short-term memory units, and a fully
+connected layer. The Osteoporotic Fractures in Men sleep (MrOS) study dataset was used to construct
+the model, including training, validating, and testing the model. A single-lead ECG signal of the
+polysomnographic recording was used for each of the 52 subjects (26 controls and 26 patients) in the
+MrOS dataset. The ECG signal was normalized and segmented (10 s duration), and it was divided
+into a training set (66,560 episodes), a validation set (16,640 episodes), and a test set (20,800 episodes).
+The performance evaluation of the deepPLM model resulted in an F1-score of 92.0%, a precision score
+of 90.0%, and a recall score of 93.0% for the control set, and 92.0%, 93.0%, and 90.0%, respectively,
+for the patient set. The results demonstrate the possibility of automatic PLMS detection in patients
+by using the deepPLM model based on a single-lead ECG. This could be an alternative method for
+PLMS screening and a helpful tool for home healthcare services for the elderly population.
+Keywords: deep learning; electrocardiogram; periodic limb movement syndrome; convolutional
+neural network; long short-term memory
+1. Introduction
+Periodic limb movement syndrome (PLMS) is a repetitive, transient movement caused
+by speciﬁc muscle tension during sleep. PLMS episodes are repeated four or more times
+in a row, with each episode in the range of 0.5–5 s in duration. The interval between two
+episodes is 5–90 s. A frequent occurrence of PLMS (etc., a high number of average PLMSs
+per hour) can lead to arousal or sleep fragmentation that can affect health and well-being [1].
+PLMS is also known to be associated with several other disorders, including cardiovascular
+disease, hypertension, depression, narcolepsy, rapid eye movement disorders, and Parkin-
+son’s disease [2–6]. Therefore, early and simple diagnosis of PLMS is clinically important
+to prevent other related diseases.
+Nocturnal polysomnography (PSG) is the standard diagnostic test for sleep disorders,
+including PLMS and restless legs syndrome. PSG performs tests such as electroencephalo-
+gram (EEG), electroencephalogram (EOG), electrocardiogram (ECG), and electromyogra-
+phy (EMG) by attaching various types of equipment to the patient’s body to measure vital
+signs. In addition, PSG can accurately and objectively diagnose all sleep-related disorders
+based on bio-signals recorded during sleep [7]. However, PSG is expensive, inconvenient,
+Diagnostics 2022, 12, 2149. https://doi.org/10.3390/diagnostics12092149
+https://www.mdpi.com/journal/diagnostics
+Diagnostics 2022, 12, 2149
+2 of 10
+and depends on sleep experts. Most importantly, it is a time-consuming task as the sleep
+expert has to manually annotate the PLMS, and the results of the annotation may vary
+depending on the sleep expert’s experience and proﬁciency.
+Electromyography (EMG) is an essential or standard physiological signal for the auto-
+matic detection of PLMS. Conventional studies have proposed rule-based models, machine
+learning algorithms, and deep learning models for automatic detection of the PLMS using
+E

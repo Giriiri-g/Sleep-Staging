@@ -1,7 +1,7 @@
 ---
 name: "research-paper-analyzer"
 description: "Use this agent when you need to read, analyze, and summarize research articles from PDF files. This includes literature review tasks, understanding new methodologies, extracting key findings from papers, or getting structured summaries of academic work.\\n\\nExamples:\\n<example>\\nContext: User wants to understand a newly downloaded research paper.\\nuser: \"Please summarize this paper on sleep staging deep learning methods\"\\nassistant: \"I'll use the research-paper-analyzer agent to read and summarize the PDF\"\\n<commentary>\\nSince the user wants to understand a research paper, use the research-paper-analyzer agent to extract key contributions, methodology, results, and limitations.\\n</commentary>\\n</example>\\n<example>\\nContext: User is conducting a literature review for their sleep research project.\\nuser: \"I have 5 papers in my papers folder about PSG feature extraction - can you summarize them?\"\\nassistant: \"I'll use the research-paper-analyzer agent to analyze all papers in that folder\"\\n<commentary>\\nSince the user needs to analyze multiple research papers for literature review, use the research-paper-analyzer agent.\\n</commentary>\\n</example>"
-model: sonnet
+model: inherit
 color: cyan
 memory: project
 ---

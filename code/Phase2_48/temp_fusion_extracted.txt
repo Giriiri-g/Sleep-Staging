@@ -1,0 +1,1110 @@
+=== Cell 0 ===
+# This Python 3 environment comes with many helpful analytics libraries installed
+# It is defined by the kaggle/python Docker image: https://github.com/kaggle/docker-python
+# For example, here's several helpful packages to load
+
+import numpy as np # linear algebra
+import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
+
+# Input data files are available in the read-only "../input/" directory
+# For example, running this (by clicking run or pressing Shift+Enter) will list all files under the input directory
+
+import os
+for dirname, _, filenames in os.walk('/kaggle/input'):
+    for filename in filenames:
+        print(os.path.join(dirname, filename))
+
+# You can write up to 20GB to the current directory (/kaggle/working/) that gets preserved as output when you create a version using "Save & Run All" 
+# You can also write temporary files to /kaggle/temp/, but they won't be saved outside of the current session
+---
+=== Cell 1 ===
+import pandas as pd
+import os
+
+# Read the CSV file (replace 'input.csv' with your actual filename)
+df = pd.read_csv('/kaggle/input/datasets/girishgiriirig/sleep-edfx-v1-0-0-eeg-preprocessed/processed_sleepedf/index.csv')
+
+# Add tensor_path column: basepath + new prefix + _spectral.pt
+def create_spectral_path(filename):
+    base_name = filename.split('\\')[-1][:-3]  # Get filename without extension
+    new_path = f"/kaggle/input/datasets/girishgiriirig/sleep-edfx-v1-0-0-eeg-preprocessed/spectral/{base_name}_spectral.pt"
+    return new_path
+
+def create_raw_path(filename):
+    base_name = filename.split('\\')[-1][:-3]  # Get filename without extension
+    new_path = f'/kaggle/input/datasets/girishgiriirig/sleep-edfx-v1-0-0-eeg-preprocessed/processed_sleepedf/tensors/{base_name}.pt'
+    return new_path
+
+# Assuming there's a column with original paths/filenames (adjust column name as needed)
+df['spectral'] = df['tensor_path'].apply(create_spectral_path)  # Replace 'path_column' with actual column
+df['tensor_path'] = df['tensor_path'].apply(create_raw_path)
+# Create/modify spectral column (example - adjust logic as needed)
+# df['spectral'] = df['tensor_path']  # Or whatever transformation you need
+
+# Save modified CSV
+df.to_csv('output.csv', index=False)
+print("Modified CSV saved as 'output.csv'")
+print(df[['tensor_path', 'spectral']].head())
+
+---
+=== Cell 2 ===
+import torch
+from torch.utils.data import Dataset, DataLoader, Subset, random_split
+import torch.nn as nn
+import torch.nn.functional as F
+import math
+import random
+import time
+from sklearn.metrics import (
+    accuracy_score, f1_score, precision_score, recall_score,
+    roc_auc_score, average_precision_score,
+    cohen_kappa_score, confusion_matrix
+)
+import json
+from sklearn.model_selection import train_test_split
+---
+=== Cell 3 ===
+STAGE_TO_IDX = {
+    "W": 0,
+    "N1": 1,
+    "N2": 2,
+    "N3": 3,
+    "REM": 4
+}
+
+IDX_TO_STAGE = {v: k for k, v in STAGE_TO_IDX.items()}
+NUM_CLASSES = 5
+
+
+class FusionSleepDataset(Dataset):
+    """
+    Sliding-window fusion dataset.
+
+    Each sample is a contiguous window of `window_size` epochs from one
+    recording, returning BOTH temporal (raw EEG) and spectral features.
+
+        x_temporal : [W, 3000]   W ≤ window_size
+        x_spectral : [W, 34]
+        y          : [W]
+
+    The last window of each file may be shorter than window_size; the
+    collate function handles padding.
+
+    Args:
+        csv_path    : path to output.csv (must have tensor_path + spectral cols)
+        file_indices: optional list of row indices for train/val split
+        window_size : number of epochs per chunk (default 256)
+        overlap     : epoch overlap between consecutive windows (default 0)
+    """
+
+    def __init__(self, csv_path, file_indices=None, window_size=256, overlap=0):
+        assert overlap < window_size, "overlap must be < window_size"
+
+        self.df = pd.read_csv(csv_path)
+        if file_indices is not None:
+            self.df = self.df.iloc[file_indices].reset_index(drop=True)
+
+        self.window_size = window_size
+        self.stride      = window_size - overlap
+
+        # Build flat index: list of (row_idx, start_epoch)
+        self.index = []
+        for row_idx, row in self.df.iterrows():
+            T = len(row['stage_sequence'].split(' '))
+            start = 0
+            while start < T:
+                self.index.append((row_idx, start))
+                start += self.stride
+
+    def __len__(self):
+        return len(self.index)
+
+    def __getitem__(self, idx):
+        row_idx, start = self.index[idx]
+        row = self.df.iloc[row_idx]
+
+        end = start + self.window_size
+
+        # Lazy-load only once per file (OS page cache makes re-reads cheap)
+        x_temporal = torch.load(row['tensor_path']).float()[start:end]  # [W, 3000]
+        x_spectral  = torch.load(row['spectral']).float()[start:end]    # [W, 34]
+
+        stages = row['stage_sequence'].split(' ')[start:end]
+        y = torch.tensor([STAGE_TO_IDX[s] for s in stages], dtype=torch.long)
+
+        return x_temporal, x_spectral, y
+---
+=== Cell 4 ===
+def fusion_collate_fn(batch):
+    """
+    Collates a batch of (x_temporal, x_spectral, y) tuples.
+
+    Returns:
+        x_temp       : [B, T_max, 3000]
+        x_spec       : [B, T_max, 34]
+        y_padded     : [B, T_max]        — padded with -100 (ignored by loss)
+        padding_mask : [B, T_max] bool   — True where padded
+    """
+    lengths  = [xt.shape[0] for xt, _, _ in batch]
+    max_len  = max(lengths)
+    B        = len(batch)
+    temp_dim = batch[0][0].shape[1]   # 3000
+    spec_dim = batch[0][1].shape[1]   # 34
+
+    x_temp   = torch.zeros(B, max_len, temp_dim)
+    x_spec   = torch.zeros(B, max_len, spec_dim)
+    y_padded = torch.full((B, max_len), -100, dtype=torch.long)
+    pad_mask = torch.ones(B, max_len, dtype=torch.bool)   # True = padded
+
+    for i, (xt, xs, y) in enumerate(batch):
+        T = xt.shape[0]
+        x_temp[i,   :T] = xt
+        x_spec[i,   :T] = xs
+        y_padded[i, :T] = y
+        pad_mask[i, :T] = False        # False = valid token
+
+    return x_temp, x_spec, y_padded, pad_mask
+---
+=== Cell 5 ===
+class SEBlock(nn.Module):
+    def __init__(self, channels, reduction=16):
+        super().__init__()
+        self.fc1 = nn.Linear(channels, channels // reduction)
+        self.fc2 = nn.Linear(channels // reduction, channels)
+
+    def forward(self, x):
+        s = x.mean(dim=-1)
+        s = F.relu(self.fc1(s))
+        s = torch.sigmoid(self.fc2(s))
+        return x * s.unsqueeze(-1)
+
+
+class AdaptiveAtrousPyramid(nn.Module):
+    def __init__(self, in_channels=1, hidden_channels=64, dilations=(1, 2, 4, 8)):
+        super().__init__()
+
+        self.branches = nn.ModuleList([
+            nn.Conv1d(
+                in_channels,
+                hidden_channels,
+                kernel_size=7,
+                dilation=d,
+                padding=3 * d
+            ) for d in dilations
+        ])
+
+        self.gate = nn.Sequential(
+            nn.AdaptiveAvgPool1d(1),
+            nn.Conv1d(hidden_channels * len(dilations), len(dilations), 1),
+            nn.Softmax(dim=1)
+        )
+
+        self.se = SEBlock(hidden_channels)
+        self.proj = nn.Conv1d(hidden_channels, hidden_channels, 1)
+
+    def forward(self, x):
+        feats = [F.relu(b(x)) for b in self.branches]
+        stacked = torch.cat(feats, dim=1)
+        weights = self.gate(stacked)
+
+        out = 0
+        for i, f in enumerate(feats):
+            out = out + f * weights[:, i:i+1]
+
+        return self.proj(self.se(out))
+
+
+class EpochEncoder(nn.Module):
+    def __init__(self, embed_dim=128):
+        super().__init__()
+        self.pyramid = AdaptiveAtrousPyramid()
+        self.pool = nn.AdaptiveAvgPool1d(1)
+        self.fc = nn.Linear(64, embed_dim)
+
+    def forward(self, x):
+        B, T, L = x.shape
+        x = x.view(B * T, 1, L)
+        f = self.pyramid(x)
+        f = self.pool(f).squeeze(-1)
+        f = self.fc(f)
+        result = f.view(B, T, -1)
+        return result
+
+
+class PositionalEncoding(nn.Module):
+    def __init__(self, d_model, max_len=512):
+        super().__init__()
+
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len).unsqueeze(1)
+        div_term = torch.exp(
+            torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model)
+        )
+
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+
+        pe = pe.unsqueeze(0)  # [1, max_len, d_model]
+        self.register_buffer("pe", pe)
+
+    def forward(self, x):
+        """
+        x: [B, T, D]
+        """
+        T = x.size(1)
+        return x + self.pe[:, :T]
+
+
+class SleepTransformer(nn.Module):
+    def __init__(self, embed_dim=128, heads=4, layers=4, dropout=0.2, max_len=512):
+        super().__init__()
+        self.positional_encoding = PositionalEncoding(embed_dim, max_len)
+        enc_layer = nn.TransformerEncoderLayer(
+            d_model=embed_dim,
+            nhead=heads,
+            dim_feedforward=embed_dim * 4,
+            dropout=dropout,
+            batch_first=True,
+            norm_first=True
+        )
+        self.encoder = nn.TransformerEncoder(enc_layer, layers)
+        self.cls = nn.Linear(embed_dim, NUM_CLASSES)
+
+    def forward(self, x, padding_mask=None):
+        # Add positional encoding BEFORE transformer
+        x = self.positional_encoding(x)
+        h = self.encoder(
+            x,
+            src_key_padding_mask=padding_mask
+        )
+        return self.cls(h)
+
+
+class SleepStagingModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.encoder = EpochEncoder()
+        self.context = SleepTransformer()
+
+    def forward(self, x, padding_mask=None):
+        feats = self.encoder(x)
+        return self.context(feats, padding_mask)
+---
+=== Cell 6 ===
+class GatedFusion(nn.Module):
+    def __init__(self, embed_dim):
+        super().__init__()
+        self.gate_net = nn.Sequential(
+            nn.Linear(embed_dim * 2, embed_dim),
+            nn.Sigmoid()
+        )
+
+    def forward(self, h_temp, h_spec):
+        gate = self.gate_net(torch.cat([h_temp, h_spec], dim=-1))
+        return gate * h_temp + (1 - gate) * h_spec
+
+
+class BidirectionalCrossAttnFusion(nn.Module):
+    """
+    Temporal attends to spectral AND spectral attends to temporal.
+    Outputs are combined via a learned gate.
+    """
+    def __init__(self, embed_dim, num_heads=4, dropout=0.1):
+        super().__init__()
+        self.temp2spec = nn.MultiheadAttention(embed_dim, num_heads, dropout=dropout, batch_first=True)
+        self.spec2temp = nn.MultiheadAttention(embed_dim, num_heads, dropout=dropout, batch_first=True)
+        self.norm1 = nn.LayerNorm(embed_dim)
+        self.norm2 = nn.LayerNorm(embed_dim)
+        self.ff_temp = nn.Sequential(
+            nn.Linear(embed_dim, embed_dim * 2), nn.GELU(),
+            nn.Linear(embed_dim * 2, embed_dim), nn.Dropout(dropout)
+        )
+        self.ff_spec = nn.Sequential(
+            nn.Linear(embed_dim, embed_dim * 2), nn.GELU(),
+            nn.Linear(embed_dim * 2, embed_dim), nn.Dropout(dropout)
+        )
+        self.norm3 = nn.LayerNorm(embed_dim)
+        self.norm4 = nn.LayerNorm(embed_dim)
+        self.gate  = nn.Sequential(nn.Linear(embed_dim * 2, embed_dim), nn.Sigmoid())
+
+    def forward(self, h_temp, h_spec, key_padding_mask=None):
+        # Temporal queries spectral
+        a1, _ = self.temp2spec(h_temp, h_spec, h_spec, key_padding_mask=key_padding_mask)
+        h_temp = self.norm1(h_temp + a1)
+        h_temp = self.norm3(h_temp + self.ff_temp(h_temp))
+
+        # Spectral queries temporal
+        a2, _ = self.spec2temp(h_spec, h_temp, h_temp, key_padding_mask=key_padding_mask)
+        h_spec = self.norm2(h_spec + a2)
+        h_spec = self.norm4(h_spec + self.ff_spec(h_spec))
+
+        # Learned gate to merge both enriched streams
+        g = self.gate(torch.cat([h_temp, h_spec], dim=-1))
+        return g * h_temp + (1 - g) * h_spec
+
+
+class FusedSleepStagingModel(nn.Module):
+    """
+    Fuses temporal (CNN) and spectral (MLP) encoders before
+    a shared SleepTransformer for sequence-level classification.
+
+    Args:
+        spectral_input_dim  — spectral feature vector size (default 34)
+        embed_dim           — shared embedding dimension
+        heads               — Transformer attention heads
+        layers              — Transformer encoder layers
+        dropout             — dropout rate
+        fusion_type         — 'concat' | 'gated' | 'cross_attn'
+    """
+    def __init__(
+        self,
+        spectral_input_dim=34,
+        embed_dim=128,
+        heads=4,
+        layers=6,             # increased from 3
+        dropout=0.2,
+        fusion_type='cross_attn'
+    ):
+        super().__init__()
+        assert fusion_type in ('concat', 'gated', 'cross_attn')
+        self.fusion_type = fusion_type
+
+        # ── Temporal encoder (CNN pyramid) ──────────────────────────────────
+        self.temporal_encoder = EpochEncoder(embed_dim=embed_dim)
+
+        # ── Spectral encoder: MLP instead of single linear ──────────────────
+        self.spectral_encoder = nn.Sequential(
+            nn.Linear(spectral_input_dim, 128), nn.GELU(), nn.LayerNorm(128),
+            nn.Linear(128, embed_dim),          nn.GELU(), nn.LayerNorm(embed_dim),
+        )
+
+        # ── Fusion module ────────────────────────────────────────────────────
+        if fusion_type == 'concat':
+            self.fusion = nn.Sequential(
+                nn.Linear(embed_dim * 2, embed_dim),
+                nn.LayerNorm(embed_dim),
+                nn.GELU()
+            )
+        elif fusion_type == 'gated':
+            self.fusion = GatedFusion(embed_dim)
+        else:  # cross_attn
+            self.fusion = BidirectionalCrossAttnFusion(embed_dim, num_heads=heads, dropout=dropout)
+
+        # ── Shared
+---
+=== Cell 7 ===
+class FocalLoss(nn.Module):
+    """
+    Focal loss with:
+      - padding mask (-100) correctly excluded from the mean
+      - per-class alpha weights to handle class imbalance
+    """
+    def __init__(self, alpha=None, gamma=2.0, num_classes=5):
+        super().__init__()
+        self.gamma = gamma
+        if alpha is None:
+            self.register_buffer('alpha', torch.ones(num_classes))
+        else:
+            # alpha can be a tensor of per-class weights
+            self.register_buffer('alpha', torch.tensor(alpha, dtype=torch.float))
+
+    def forward(self, logits, targets):
+        # logits:  [N, C]  (already flattened)
+        # targets: [N]
+
+        # --- FIXED: exclude padding tokens before averaging ---
+        valid   = targets != -100
+        logits  = logits[valid]
+        targets = targets[valid]
+
+        if logits.numel() == 0:
+            return logits.sum() * 0.0   # safe zero grad
+
+        ce   = F.cross_entropy(logits, targets, weight=self.alpha, reduction='none')
+        pt   = torch.exp(-ce)
+        loss = (1 - pt) ** self.gamma * ce
+        return loss.mean()
+---
+=== Cell 8 ===
+def set_seed(seed=42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+
+def compute_specificity(y_true, y_pred, num_classes=5):
+    cm = confusion_matrix(y_true, y_pred, labels=list(range(num_classes)))
+    specs = []
+    for i in range(num_classes):
+        tn = cm.sum() - (cm[i, :].sum() + cm[:, i].sum() - cm[i, i])
+        fp = cm[:, i].sum() - cm[i, i]
+        specs.append(tn / (tn + fp + 1e-8))
+    return float(np.mean(specs))
+
+
+def compute_metrics(y_true, y_pred, y_prob):
+    metrics = {
+        "accuracy": accuracy_score(y_true, y_pred),
+        "f1_weighted": f1_score(y_true, y_pred, average="weighted"),
+        "f1_macro": f1_score(y_true, y_pred, average="macro"),
+        "precision": precision_score(y_true, y_pred, average="weighted"),
+        "recall": recall_score(y_true, y_pred, average="weighted"),
+        "kappa": cohen_kappa_score(y_true, y_pred),
+        "specificity": compute_specificity(y_true, y_pred)
+    }
+    print("[METRICS] Computed basic metrics (accuracy, F1, precision, recall, kappa, specificity).")
+    try:
+        metrics["roc_auc"] = roc_auc_score(
+            y_true, y_prob, multi_class="ovr", average="weighted"
+        )
+        metrics["pr_auc"] = average_precision_score(
+            y_true, y_prob, average="weighted"
+        )
+    except ValueError:
+        metrics["roc_auc"] = None
+        metrics["pr_auc"] = None
+
+    return metrics
+---
+=== Cell 10 ===
+def evaluate_fusion(model, loader, device):
+    model.eval()
+    y_true, y_pred, y_prob = [], [], []
+    use_amp = device.type == 'cuda'
+
+    with torch.no_grad():
+        for x_temp, x_spec, y, padding_mask in loader:
+            x_temp       = x_temp.to(device)
+            x_spec       = x_spec.to(device)
+            y            = y.to(device)
+            padding_mask = padding_mask.to(device)
+
+            with torch.amp.autocast(device_type='cuda', enabled=use_amp):
+                logits, _, _ = model(x_temp, x_spec, padding_mask)  # unpack 3 outputs
+
+            probs = torch.softmax(logits, dim=-1)
+            preds = probs.argmax(dim=-1)
+            valid = ~padding_mask
+
+            y_true.extend(y[valid].cpu().numpy())
+            y_pred.extend(preds[valid].cpu().numpy())
+            y_prob.extend(probs[valid].cpu().numpy())
+
+    return compute_metrics(
+        np.array(y_true),
+        np.array(y_pred),
+        np.array(y_prob)
+    )
+---
+=== Cell 11 ===
+def train_model_fusion(train_dataset, val_dataset, device,
+                       fusion_type='cross_attn', epochs=150):
+
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=16,
+        shuffle=True,
+        num_workers=2,
+        collate_fn=fusion_collate_fn,
+        pin_memory=True,
+        persistent_workers=True
+    )
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=16,
+        shuffle=False,
+        num_workers=2,
+        collate_fn=fusion_collate_fn,
+        pin_memory=True,
+        persistent_workers=True
+    )
+
+    model = nn.DataParallel(
+        FusedSleepStagingModel(fusion_type=fusion_type)
+    ).to(device)
+
+    total_params     = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    logger(f"Fused model on {device} | fusion='{fusion_type}'")
+    logger(f"Total params: {total_params:,} | Trainable: {trainable_params:,}")
+    logger(f"Train chunks: {len(train_dataset):,} | Val chunks: {len(val_dataset):,}")
+
+    # ── Per-class alpha: inverse-frequency weights ───────────────────────────
+    class_counts  = torch.tensor([70154, 25175, 88983, 19454, 34184], dtype=torch.float)
+    class_weights = 1.0 / class_counts
+    class_weights = class_weights / class_weights.sum() * NUM_CLASSES   # normalise to sum=5
+    criterion = FocalLoss(alpha=class_weights, gamma=2.0).to(device)
+    AUX_WEIGHT = 0.3   # weight for each auxiliary stream loss
+
+    # ── AdamW + OneCycleLR ───────────────────────────────────────────────────
+    optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=1e-2)
+    scheduler = torch.optim.lr_scheduler.OneCycleLR(
+        optimizer,
+        max_lr=3e-4,
+        steps_per_epoch=len(train_loader),
+        epochs=epochs,
+        pct_start=0.05      # 5% warmup
+    )
+    scaler  = torch.amp.GradScaler()
+    best_f1 = -1
+
+    for epoch in range(epochs):
+        model.train()
+        total_loss = 0
+
+        for batch_idx, (x_temp, x_spec, y, padding_mask) in enumerate(train_loader):
+            x_temp       = x_temp.to(device)
+            x_spec       = x_spec.to(device)
+            y            = y.to(device)
+            padding_mask = padding_mask.to(device)
+
+            optimizer.zero_grad()
+
+            with torch.amp.autocast(device_type='cuda'):
+                logits, aux_temp, aux_spec = model(x_temp, x_spec, padding_mask)
+
+                y_flat        = y.view(-1)
+                loss_main     = criterion(logits.view(-1, NUM_CLASSES),    y_flat)
+                loss_aux_temp = criterion(aux_temp.view(-1, NUM_CLASSES),  y_flat)
+                loss_aux_spec = criterion(aux_spec.view(-1, NUM_CLASSES),  y_flat)
+
+                loss = loss_main + AUX_WEIGHT * loss_aux_temp + AUX_WEIGHT * loss_aux_spec
+
+            scaler.scale(loss).backward()
+            scaler.unscale_(optimizer)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            scaler.step(optimizer)
+            scaler.update()
+            scheduler.step()
+
+            if device.type == 'cuda' and batch_idx % 50 == 0:
+                mem_alloc    = torch.cuda.memory_allocated() / 1024**2
+                mem_reserved = torch.cuda.memory_reserved()  / 1024**2
+                print(f"  GPU | Alloc: {mem_alloc:.1f} MB | Reserved: {mem_reserved:.1f} MB")
+
+            total_loss += loss.item()
+
+        metrics = evaluate_fusion(model, val_loader, device)
+
+        log = {'epoch': epoch, 'train_loss': total_loss / len(train_loader), **metrics}
+        with open('/kaggle/working/training_metrics_fusion.jsonl', 'a') as f:
+            f.write(json.dumps(log) + '\n')
+
+        if metrics['f1_weighted'] > best_f1:
+            best_f1 = metrics['f1_weighted']
+            torch.save(model.state_dict(), '/kaggle/working/best_model_fusion.pt')
+
+        logger(
+            f"Epoch {epoch:3d} | Loss: {total_loss/len(train_loader):.4f} | "
+            f"F1: {metrics['f1_weighted']:.4f} | Acc: {met
+---
+=== Cell 12 ===
+def main():
+    set_seed(42)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    csv_path = '/kaggle/working/output.csv'
+
+    # Split at FILE level (not chunk level) to prevent data leakage
+    tmp = pd.read_csv(csv_path)
+    num_files = len(tmp)
+    print(f"Total files: {num_files}")
+
+    indices = list(range(num_files))
+    train_idx, val_idx = train_test_split(indices, test_size=0.2, random_state=42)
+
+    WINDOW_SIZE = 256   # epochs per chunk — controls max sequence length
+    OVERLAP     = 0     # set >0 (e.g. 64) for denser training signal
+
+    train_dataset = FusionSleepDataset(csv_path, file_indices=train_idx,
+                                       window_size=WINDOW_SIZE, overlap=OVERLAP)
+    val_dataset   = FusionSleepDataset(csv_path, file_indices=val_idx,
+                                       window_size=WINDOW_SIZE, overlap=OVERLAP)
+
+    print(f"Train files: {len(train_idx)} → {len(train_dataset):,} chunks")
+    print(f"Val   files: {len(val_idx)}  → {len(val_dataset):,} chunks")
+
+    # Options: 'concat' | 'gated' | 'cross_attn'
+    FUSION_TYPE = 'concat'
+
+    train_model_fusion(train_dataset, val_dataset, device,
+                       fusion_type=FUSION_TYPE, epochs=150)
+---
+=== Cell 14 ===
+# ╔══════════════════════════════════════════════════════════════════════════╗
+# ║  REPLACE CELL 14 — inference + full evaluation                          ║
+# ║  Includes: confusion matrix, classification report, ROC, PR curves      ║
+# ╚══════════════════════════════════════════════════════════════════════════╝
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import (
+    classification_report, confusion_matrix,
+    roc_curve, auc,
+    precision_recall_curve, average_precision_score
+)
+from sklearn.preprocessing import label_binarize
+from pathlib import Path
+
+FUSION_TYPE = 'concat'       # must match what was used in training
+WINDOW_SIZE = 256
+CLASS_NAMES = ['Wake', 'N1', 'N2', 'N3', 'REM']
+NUM_CLASSES = 5
+COLORS      = plt.cm.Set2(np.linspace(0, 1, NUM_CLASSES))
+OUTPUT_DIR  = Path('/kaggle/working/evaluation_results')
+OUTPUT_DIR.mkdir(exist_ok=True)
+
+device   = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+csv_path = '/kaggle/working/output.csv'
+
+# ── Load dataset & model ────────────────────────────────────────────────────
+test_dataset = FusionSleepDataset(csv_path, window_size=WINDOW_SIZE, overlap=0)
+test_loader  = DataLoader(
+    test_dataset,
+    batch_size=16,
+    shuffle=False,
+    num_workers=2,
+    collate_fn=fusion_collate_fn,
+    pin_memory=True,
+    persistent_workers=True
+)
+print(f"Full dataset: {len(test_dataset):,} chunks from {len(test_dataset.df)} files")
+
+model = nn.DataParallel(FusedSleepStagingModel(fusion_type=FUSION_TYPE)).to(device)
+model.load_state_dict(
+    torch.load('/kaggle/working/best_model_fusion.pt', map_location=device)
+)
+model.eval()
+print("Best fusion model loaded!\n")
+
+# ── Collect predictions ─────────────────────────────────────────────────────
+print("Collecting predictions...")
+y_true_all, y_pred_all, y_prob_all = [], [], []
+
+with torch.no_grad():
+    for batch_idx, (x_temp, x_spec, y, padding_mask) in enumerate(test_loader):
+        x_temp, x_spec = x_temp.to(device), x_spec.to(device)
+        y, padding_mask = y.to(device), padding_mask.to(device)
+
+        with torch.amp.autocast(device_type='cuda', enabled=device.type == 'cuda'):
+            logits = model(x_temp, x_spec, padding_mask)[0]
+
+        probs = torch.softmax(logits, dim=-1)
+        preds = probs.argmax(dim=-1)
+        valid = ~padding_mask
+
+        y_true_all.extend(y[valid].cpu().numpy())
+        y_pred_all.extend(preds[valid].cpu().numpy())
+        y_prob_all.extend(probs[valid].cpu().numpy())
+
+        if batch_idx % 20 == 0:
+            print(f"  Batch {batch_idx}/{len(test_loader)}")
+
+y_true_all = np.array(y_true_all)
+y_pred_all = np.array(y_pred_all)
+y_prob_all = np.array(y_prob_all)
+y_true_bin = label_binarize(y_true_all, classes=list(range(NUM_CLASSES)))  # [N, 5]
+print(f"Predictions collected: {len(y_true_all):,} valid epochs\n")
+
+# ── [1] Classification Report ───────────────────────────────────────────────
+print("=" * 60)
+print("CLASSIFICATION REPORT")
+print("=" * 60)
+report = classification_report(y_true_all, y_pred_all, target_names=CLASS_NAMES, digits=4)
+print(report)
+with open(OUTPUT_DIR / 'classification_report.txt', 'w') as f:
+    f.write(report)
+
+# ── [2] Confusion Matrix ────────────────────────────────────────────────────
+cm      = confusion_matrix(y_true_all, y_pred_all)
+cm_norm = cm.astype('float') / cm.sum(axis=1, keepdims=True)
+
+fig, axes = plt.subplots(1, 2, figsize=(16, 6))
+sns.heatmap(cm,      annot=True, fmt='d',    cmap='Blues',
+            xticklabels=CLASS_NAMES, yticklabels=CLASS_NAMES, ax=axes[0])
+axes[0].set_title(f'Confusion Matrix — Counts [{FUSION_TYPE} fusion]', fontweight='bold')
+axes[0].set_xlabel('Predicted'); axes[0].set_ylabel('True')
+
+sns.heatmap(cm_norm, annot=True, fmt='.2%', cmap='Blues',
+            xticklabels=CLASS_NAMES, yticklabels=CLASS_NAMES, ax=axes[1])
+axes[1].set_title(f'Confusion Matrix — Normalised [{FUSION_TYPE} fusion]', fontweight='bold')
+axes[1].set_xlabel('Predicted'); axes[1].set_ylabel('True')
+
+plt.tight_layout()
+plt.sa
+---
+=== Cell 15 ===
+# Use .value instead of .data
+if uploader.value:
+    # uploader.value is a list; [0] gets the first file
+    # ['content'] contains the actual bytes
+    file_content = uploader.value[0]['content']
+    
+    with open("best_model_fusion.pt", "wb") as f:
+        f.write(file_content)
+    
+    print("Model uploaded successfully to /kaggle/working/best_model.pt")
+else:
+    print("No file uploaded yet! Please select a file before running this cell.")
+
+---
+=== Cell 17 ===
+csv_path = '/kaggle/working/output.csv'
+
+# Split at FILE level (not chunk level) to prevent data leakage
+tmp = pd.read_csv(csv_path)
+num_files = len(tmp)
+print(f"Total files: {num_files}")
+
+indices = list(range(num_files))
+train_idx, val_idx = train_test_split(indices, test_size=0.2, random_state=42)
+
+WINDOW_SIZE = 256   # epochs per chunk — controls max sequence length
+OVERLAP     = 0     # set >0 (e.g. 64) for denser training signal
+
+train_dataset = FusionSleepDataset(csv_path, file_indices=train_idx,
+                                   window_size=WINDOW_SIZE, overlap=OVERLAP)
+val_dataset   = FusionSleepDataset(csv_path, file_indices=val_idx,
+                                   window_size=WINDOW_SIZE, overlap=OVERLAP)
+val_loader = DataLoader(
+        val_dataset,
+        batch_size=16,
+        shuffle=False,
+        num_workers=2,
+        collate_fn=fusion_collate_fn,
+        pin_memory=True,
+        persistent_workers=True
+    )
+---
+=== Cell 18 ===
+class AttentionRollout:
+    """
+    Extracts per-epoch influence scores by accumulating attention weights
+    across transformer layers via monkey-patching to force need_weights=True,
+    bypassing PyTorch's fast path which returns None for weights.
+    """
+    def __init__(self, model):
+        self.model     = model
+        self.attn_maps = []
+        self._patched  = []
+
+    def _patch(self):
+        """Temporarily replace each self_attn.forward to capture weights."""
+        self.attn_maps.clear()
+        self._patched.clear()
+        captured = self.attn_maps
+
+        for layer in self.model.module.context.encoder.layers:
+            mha  = layer.self_attn
+            orig = mha.forward
+
+            def make_patched(original):
+                def patched(query, key, value, key_padding_mask=None,
+                            need_weights=True, attn_mask=None, **kwargs):
+                    out, weights = original(
+                        query, key, value,
+                        key_padding_mask=key_padding_mask,
+                        need_weights=True,          # force — bypasses fast path
+                        average_attn_weights=True,
+                        attn_mask=attn_mask
+                    )
+                    captured.append(weights.detach() if weights is not None else None)
+                    return out, weights
+                return patched
+
+            mha.forward = make_patched(orig)
+            self._patched.append((mha, orig))
+
+    def _unpatch(self):
+        for mha, orig in self._patched:
+            mha.forward = orig
+        self._patched.clear()
+
+    def __call__(self, x_temp, x_spec, padding_mask=None):
+        self._patch()
+        self.model.eval()
+
+        with torch.no_grad():
+            logits, _, _ = self.model(x_temp, x_spec, padding_mask)
+
+        self._unpatch()
+
+        valid_maps = [a for a in self.attn_maps if a is not None]
+
+        # Fallback: if all layers returned None, return uniform influence
+        if not valid_maps:
+            B, T = x_temp.shape[:2]
+            influence = torch.ones(B, T, device=x_temp.device) / T
+            if padding_mask is not None:
+                influence[padding_mask] = 0.0
+            return influence, torch.softmax(logits, dim=-1)
+
+        # Attention rollout: accumulate with residual (0.5*A + 0.5*I)
+        rollout = None
+        for attn in valid_maps:
+            # attn: [B, T, T]
+            I      = torch.eye(attn.size(-1), device=attn.device).unsqueeze(0)
+            attn_r = 0.5 * attn + 0.5 * I
+            attn_r = attn_r / attn_r.sum(dim=-1, keepdim=True)
+            rollout = attn_r if rollout is None else torch.bmm(rollout, attn_r)
+
+        influence = rollout.mean(dim=1)  # [B, T]
+
+        if padding_mask is not None:
+            influence[padding_mask] = 0.0
+
+        return influence, torch.softmax(logits, dim=-1)
+---
+=== Cell 19 ===
+class EpochGradCAM:
+    """
+    GradCAM on the AdaptiveAtrousPyramid proj layer.
+    Uses a single forward pass with retain_grad() so the gradient
+    flows correctly back to the captured feature map.
+    """
+    def __init__(self, model):
+        self.model = model
+        self.fmap  = None
+
+    def compute(self, x_temp, x_spec, padding_mask, epoch_idx, batch_idx=0):
+        """
+        epoch_idx : which epoch (time step) in the window to explain
+        Returns   : heatmap [3000] normalised to [0, 1]
+        """
+        self.model.eval()
+        self.fmap = None
+
+        encoder = self.model.module.temporal_encoder
+        pyramid = encoder.pyramid
+
+        # Hook captures the proj layer output during the SINGLE full forward
+        def fwd_hook(m, inp, out):
+            self.fmap = out          # [B*T, 64, T']
+            self.fmap.retain_grad()  # needed to access .grad after backward
+
+        handle = pyramid.proj.register_forward_hook(fwd_hook)
+
+        # ONE forward pass — gradients flow to self.fmap correctly
+        with torch.enable_grad():
+            logits, _, _ = self.model(x_temp, x_spec, padding_mask)
+            class_score  = logits[batch_idx, epoch_idx].max()
+            class_score.backward()
+
+        handle.remove()
+
+        if self.fmap is None or self.fmap.grad is None:
+            print("[GradCAM] Warning: no gradient captured — returning zeros")
+            return np.zeros(3000)
+
+        # x_temp is [1, T, 3000] (single sample), so flat index = epoch_idx
+        T        = x_temp.shape[1]
+        flat_idx = batch_idx * T + epoch_idx
+
+        fmap_ep = self.fmap[flat_idx]       # [64, T']
+        grad_ep = self.fmap.grad[flat_idx]  # [64, T']
+
+        weights = grad_ep.mean(dim=-1)      # [64]
+        cam     = (weights.unsqueeze(-1) * fmap_ep).sum(dim=0)  # [T']
+        cam     = F.relu(cam)
+
+        # Upsample from T' → 3000 raw timepoints
+        cam = F.interpolate(
+            cam.unsqueeze(0).unsqueeze(0), size=3000,
+            mode='linear', align_corners=False
+        ).squeeze()
+
+        cam = (cam - cam.min()) / (cam.max() - cam.min() + 1e-8)
+        return cam.detach().cpu().numpy()
+---
+=== Cell 20 ===
+class MCDropoutPredictor:
+    """
+    Monte Carlo Dropout uncertainty estimation.
+    Requires dropout > 0 in the model (already set to 0.2).
+    """
+    def __init__(self, model, n_samples=30):
+        self.model     = model
+        self.n_samples = n_samples
+
+    def _enable_dropout(self):
+        """Turn on dropout even during eval mode."""
+        for m in self.model.modules():
+            if isinstance(m, nn.Dropout):
+                m.train()
+
+    def predict(self, x_temp, x_spec, padding_mask=None):
+        """
+        Returns:
+            mean_probs  : [B, T, C]  — mean predicted probabilities
+            uncertainty : [B, T]     — predictive entropy (higher = less certain)
+            pred_std    : [B, T, C]  — std across MC samples per class
+        """
+        self.model.eval()
+        self._enable_dropout()   # dropout ON during inference
+
+        all_probs = []
+        with torch.no_grad():
+            for _ in range(self.n_samples):
+                logits, _, _ = self.model(x_temp, x_spec, padding_mask)
+                all_probs.append(torch.softmax(logits, dim=-1))
+
+        all_probs   = torch.stack(all_probs, dim=0)  # [N_samples, B, T, C]
+        mean_probs  = all_probs.mean(dim=0)           # [B, T, C]
+        pred_std    = all_probs.std(dim=0)            # [B, T, C]
+
+        # Predictive entropy: H = -sum(p * log(p))
+        eps         = 1e-8
+        entropy     = -(mean_probs * (mean_probs + eps).log()).sum(dim=-1)  # [B, T]
+
+        # Zero out padding
+        if padding_mask is not None:
+            entropy[padding_mask]    = 0.0
+            mean_probs[padding_mask] = 0.0
+
+        return mean_probs, entropy, pred_std
+
+
+# # Usage
+# mc = MCDropoutPredictor(model, n_samples=30)
+# mean_probs, uncertainty, pred_std = mc.predict(x_temp, x_spec, padding_mask)
+# uncertainty: [B, T] — entropy per epoch, high value = model unsure
+# pred_std:    [B, T, 5] — spread per class across samples
+---
+=== Cell 21 ===
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+import matplotlib.gridspec as gridspec
+import matplotlib.colors as mcolors
+import matplotlib.cm as cm
+from matplotlib.ticker import MaxNLocator
+from scipy.ndimage import uniform_filter1d
+import numpy as np
+
+# ── Clinical display settings ────────────────────────────────────────────────
+STAGE_NAMES  = ['Wake', 'N1', 'N2', 'N3', 'REM']
+STAGE_COLORS = {
+    0: '#E05C5C',   # Wake  — warm red
+    1: '#A78BCA',   # N1    — soft purple
+    2: '#5B9BD5',   # N2    — calm blue
+    3: '#4BAE8A',   # N3    — deep green
+    4: '#F0A500',   # REM   — amber
+}
+MAX_EPOCHS = 180
+
+# Confidence thresholds (entropy-based, hidden from clinician)
+# These map uncertainty → plain language
+def _confidence_label(entropy_val, max_entropy):
+    ratio = entropy_val / (max_entropy + 1e-8)
+    if ratio < 0.45:
+        return 'High',   '#2ecc71', '●'
+    elif ratio < 0.72:
+        return 'Medium', '#f39c12', '●'
+    else:
+        return 'Low',    '#e74c3c', '●'
+
+
+def explain_single_sample(model, x_temp, x_spec, padding_mask, y_true,
+                           batch_idx=0, epoch_to_detail=None):
+
+    device = next(model.parameters()).device
+
+    # ── Extract single sample ────────────────────────────────────────────────
+    x_t   = x_temp[batch_idx].unsqueeze(0).to(device)
+    x_s   = x_spec[batch_idx].unsqueeze(0).to(device)
+    pmask = padding_mask[batch_idx].unsqueeze(0).to(device)
+    y_t   = y_true[batch_idx]
+
+    T_full = (~pmask[0]).sum().item()
+    T      = min(T_full, MAX_EPOCHS)
+
+    # ── Run explainers (all technical, none shown to clinician) ─────────────
+    torch.cuda.empty_cache()
+    rollout = AttentionRollout(model)
+    influence, probs = rollout(x_t, x_s, pmask)
+    influence_ = influence[0, :T].cpu().numpy()
+    preds      = probs[0, :T].argmax(dim=-1).cpu().numpy()
+    del rollout, probs
+    torch.cuda.empty_cache()
+
+    mc = MCDropoutPredictor(model, n_samples=20)
+    mean_probs, entropy, _ = mc.predict(x_t, x_s, pmask)
+    entropy_    = entropy[0, :T].cpu().numpy()
+    del mc, mean_probs, entropy
+    torch.cuda.empty_cache()
+
+    if epoch_to_detail is None:
+        # Pick most uncertain epoch where model was also wrong
+        wrong_mask = (preds != y_t[:T].cpu().numpy())
+        if wrong_mask.any():
+            epoch_to_detail = int(np.argmax(entropy_ * wrong_mask))
+        else:
+            epoch_to_detail = int(np.argmax(entropy_))
+    epoch_to_detail = min(epoch_to_detail, T - 1)
+
+    gradcam = EpochGradCAM(model)
+    heatmap = gradcam.compute(x_t, x_s, pmask,
+                              epoch_idx=epoch_to_detail, batch_idx=0)
+    del gradcam
+    torch.cuda.empty_cache()
+
+    y_true_ = y_t[:T].cpu().numpy().astype(int)
+    preds_  = preds.astype(int)
+    epochs  = np.arange(T)
+    time_minutes = epochs * 0.5   # each epoch = 30 s → 0.5 min
+
+    # Derive confidence level per epoch
+    max_ent = np.log(5)   # max possible entropy for 5 classes
+    conf_levels = [_confidence_label(entropy_[i], max_ent) for i in range(T)]
+
+    # Identify epochs flagged for review: low confidence OR wrong prediction
+    flagged = np.where(
+        (preds_ != y_true_) | (entropy_ > np.percentile(entropy_, 75))
+    )[0]
+
+    # ════════════════════════════════════════════════════════════════════════
+    # FIGURE 1 — Sleep Stage Summary (the Hypnogram a clinician knows)
+    # ════════════════════════════════════════════════════════════════════════
+    max_ent      = np.log(5)                          # max entropy for 5 classes
+    norm_entropy = np.clip(entropy_ / max_ent, 0, 1)  # 0=certain, 1=most uncertain
+    confidence   = 1.0 - norm_entropy                 # 0=low conf, 1=high conf
+
+    # ── 5 bins, jet colourmap ────────────────────────────────────────────────
+    N_BINS   = 5
+    jet      = cm.get_cmap('jet', N_BINS)
+    bounds   = np.linspace(0, 1, N_BINS + 1)          # [0, 0.2, 0.4, 0.6, 0.8, 1.0]
+    bin_norm = mcolors.BoundaryNorm(bounds, N_BINS)
+    bin_idx  = np.digitize(
+---
+=== Cell 23 ===
+from fvcore.nn import FlopCountAnalysis, parameter_count_table
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+# Dummy inputs — batch=1, window=256 epochs
+dummy_temp = torch.randn(1, 256, 3000).to(device)
+dummy_spec = torch.randn(1, 256, 34).to(device)
+dummy_mask = torch.zeros(1, 256, dtype=torch.bool).to(device)
+
+for fusion_type in ('concat', 'gated', 'cross_attn'):
+    model = FusedSleepStagingModel(fusion_type=fusion_type).to(device)
+    model.eval()
+
+    # ── Params ───────────────────────────────────────────────────────────────
+    total_params     = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+    # ── FLOPs ─────────────────────────────────────────────────────────────────
+    # FusedSleepStagingModel.forward returns (logits, aux_temp, aux_spec)
+    # fvcore traces the full graph so all three outputs are counted
+    flops = FlopCountAnalysis(model, (dummy_temp, dummy_spec, dummy_mask))
+    flops.unsupported_ops_warnings(False)
+    flops.uncalled_modules_warnings(False)
+
+    print(f"[{fusion_type:<10}]  FLOPs : {flops.total():,}  ({flops.total()/1e9:.3f}G)")
+    print(f"[{fusion_type:<10}]  Params: {total_params:,} ({total_params/1e6:.3f}M)  "
+          f"Trainable: {trainable_params:,}")
+    print()
+---

@@ -1,0 +1,180 @@
+% Chapter 3 — Proposed Work
+
+\section{Proposed Work}
+
+The proposed framework addresses the four gaps identified in Chapter 2 through a unified end-to-end pipeline for automated sleep analysis, disorder detection, and personalised explanation. The system connects directly to the research gaps as follows. The multi-disorder unified pipeline addresses the single-task framing limitation. The two-stage ElasticNet feature selection addresses the failure of L1-only methods. The two-tier explainability system addresses the black-box prediction limitation. The SomnAI patient interface addresses the inaccessible explanation limitation.
+
+The framework integrates five modules: dual-dataset acquisition from Sleep-EDF Expanded and MESA Sleep Study; dual-stream signal preprocessing producing temporal and spectral representations for staging plus a 136-dimensional clinical feature matrix for disorder detection; a temporal-spectral fusion transformer for five-class sleep staging; an ElasticNet bootstrap stability selection pipeline feeding five machine learning classifiers for multi-disorder detection; and a two-tier explainability system serving clinicians and patients through separate output layers, with patient-facing natural language generation powered by the Groq Cloud API. The three-tier system architecture is illustrated in Figure~\ref{fig:3tier}.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{methodology 3 tier system.jpg}
+    \caption{Three-tier system architecture of the proposed framework. The first tier covers data ingestion and preprocessing from multi-modal PSG recordings. The second tier performs AI-based sleep staging and disorder classification. The third tier delivers dual-audience explainability outputs: clinician-facing signal localisation and uncertainty tools, and patient-facing risk scores, feature importance, and conversational guidance via the Groq Cloud LLM API.}
+    \label{fig:3tier}
+\end{figure}
+
+\subsection{Objectives of the Proposed Work}
+
+The primary objective is to develop a multi-disorder sleep analysis framework that achieves clinically meaningful F1 scores for obstructive sleep apnea, insomnia, and restless legs syndrome simultaneously.
+
+The secondary objectives are as follows. First, to design a feature selection pipeline that identifies complementary feature groups rather than standalone strong predictors. Second, to build a temporal-spectral fusion transformer that jointly models raw EEG morphology and engineered spectral features for five-class sleep staging. Third, to produce per-epoch explainability through GradCAM event localisation, attention rollout, and Monte Carlo Dropout confidence scoring. Fourth, to quantify prediction uncertainty per epoch to flag cases that require human review, and to generate patient-facing risk scores, feature importance, and counterfactual explanations via a Groq Cloud LLM interface.
+
+\section{Methodology}
+
+\subsection{Overview of the Approach}
+
+The complete technical methodology is illustrated in Figure~\ref{fig:methodology}. The system processes two distinct input types. For sleep staging, raw EEG waveforms from the Sleep-EDF Expanded dataset are processed through a dual-stream encoder that extracts both temporal and spectral representations, which are then fused and passed through a transformer encoder for five-class epoch classification. For disorder detection, a 136-dimensional clinical feature matrix extracted from MESA PSG recordings is processed through a two-stage feature selection pipeline before being classified by an ensemble of machine learning models. The explainability pipeline operates on the outputs of both modules, generating clinician-facing attention maps and uncertainty scores alongside patient-facing risk scores and natural-language guidance.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{methodology_technical figure.png}
+    \caption{End-to-end technical methodology of the proposed system. The pipeline covers five stages: (1) data preprocessing and dual-stream representation from PSG signals; (2) feature extraction via the Adaptive Atrous Pyramid temporal encoder and spectral embedding projection; (3) sleep staging sequencing through the transformer encoder with channel fusion; (4) disorder classification using physiological signal features, questionnaire data, and sleep stage features; and (5) explainability features split into patient-facing remedy recommendations and AI advisor, and clinician-facing feature importance and signal importance visualisations.}
+    \label{fig:methodology}
+\end{figure}
+
+\subsection{Dataset Selection}
+
+Two publicly available polysomnography datasets are used in this work.
+
+The Sleep-EDF Expanded dataset \cite{sleepedfx}, sourced from PhysioNet \cite{physiobank}, consists of 197 whole-night PSG recordings from healthy and sleep-disturbed adult subjects spanning an age range of approximately 25 to 101 years. Data were acquired using laboratory-grade equipment with the Fpz-Cz EEG channel sampled at 100 Hz. Annotations follow the Rechtschaffen and Kales standard, segmenting recordings into 30-second epochs across five stages: wake, N1, N2, N3, and REM. This dataset is used for supervised training and validation of the sleep staging model.
+
+The MESA Sleep Study dataset \cite{mesa2020}, accessed through the National Sleep Research Resource \cite{nsrr}, comprises over 2,200 recordings from a diverse adult cohort aged approximately 45 to 84 years. The dataset provides clinically adjudicated labels for three sleep disorders: obstructive sleep apnea, insomnia, and restless legs syndrome. These labels are derived from self-reported questionnaires, with positive class prevalence of 7.6 percent for apnea, 6.3 percent for insomnia, and 4.5 percent for restless legs syndrome. A separate PSG signal-derived feature CSV containing 2,056 rows and 136 columns was constructed from the raw MESA recordings. This dataset is used for disorder detection research.
+
+\subsection{Algorithm and Model Design}
+
+\subsubsection{Data Preprocessing}
+
+The preprocessing pipeline transforms raw PSG recordings into three distinct representations.
+
+For the sleep staging model, only the Fpz-Cz EEG channel is retained to ensure consistency across both datasets. All signals are resampled to 100 Hz to satisfy the Nyquist criterion for all clinically relevant bands up to 45 Hz. Signals are segmented into non-overlapping 30-second epochs, yielding 3,000 samples per epoch. Non-physiological labels including Movement Time and Unknown are excluded. N4 epochs are merged into N3 following current AASM conventions.
+
+Figure~\ref{fig:eeg_stages} shows representative 30-second EEG waveforms from the Fpz-Cz channel for each sleep stage. The characteristic morphological differences are clearly visible: wake shows high-frequency, low-amplitude activity; N1 shows mixed-frequency activity; N2 shows sleep spindles and K-complexes; N3 and N4 show high-amplitude slow delta waves; and REM shows low-amplitude mixed-frequency activity resembling wake.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{EEG Fpz-Cz vs all stages.png}
+    \caption{Representative 30-second EEG Fpz-Cz waveforms for each sleep stage from the Sleep-EDF Expanded dataset. Each row shows a single epoch from wake, N1, N2, N3, N4, and REM respectively. The morphological differences between stages motivate the dual-stream temporal-spectral representation used in the proposed model.}
+    \label{fig:eeg_stages}
+\end{figure}
+
+The raw Sleep-EDF Expanded dataset contains non-physiological labels and extended wake periods at recording boundaries that inflate the wake class count. Figures~\ref{fig:stage_dist_uncleaned} and~\ref{fig:stage_dist_cleaned} show the epoch distribution before and after the cleaning procedure. Before cleaning, the dataset contains 290,365 wake epochs, 25,175 N1 epochs, 88,983 N2 epochs, 12,191 N3 epochs, 7,263 N4 epochs, 34,184 REM epochs, 25,047 unscored epochs, and 211 movement epochs. After merging N4 into N3, removing non-physiological labels, and trimming boundary wake epochs, the cleaned dataset contains 44,147 wake, 25,175 N1, 88,983 N2, 19,454 N3, and 34,184 REM epochs, yielding a total of 211,943 usable epochs.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{stages uncleaned.png}
+    \caption{Sleep stage epoch distribution in the Sleep-EDF Expanded dataset before preprocessing. The raw dataset contains 290,365 wake epochs, reflecting extended pre-sleep and post-sleep recording periods, along with unscored and movement epochs that must be excluded. N4 is present as a separate class prior to AASM-compliant merging with N3.}
+    \label{fig:stage_dist_uncleaned}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{stages cleaned.png}
+    \caption{Sleep stage epoch distribution after preprocessing. Non-physiological labels are removed, N4 is merged into N3, and boundary wake epochs are trimmed. The cleaned dataset contains 211,943 epochs across five classes, with N2 as the dominant stage at 88,983 epochs and N3 as the smallest at 19,454 epochs.}
+    \label{fig:stage_dist_cleaned}
+\end{figure}
+
+The effect of preprocessing on the temporal structure of recordings is shown in Figures~\ref{fig:seq_uncleaned} and~\ref{fig:seq_cleaned}. Before cleaning, recordings are dominated by extended wake periods at the start and end, with sleep activity concentrated in the middle. After cleaning, the recordings show the natural ultradian sleep cycle structure with alternating NREM and REM periods across the night.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{stage sequence uncleaned.png}
+    \caption{Sleep stage sequences for five sample subjects before preprocessing. Each row represents one overnight recording as a colour-coded epoch timeline. The large blue (wake) regions at the start and end of each recording reflect the extended pre-sleep and post-sleep periods that are trimmed during preprocessing.}
+    \label{fig:seq_uncleaned}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{stage sequence cleaned.png}
+    \caption{Sleep stage sequences for the same five subjects after preprocessing. The trimmed recordings reveal the natural ultradian sleep architecture, with N3 (purple) concentrated in the first half of the night and REM (red) periods increasing in the second half, consistent with established sleep physiology.}
+    \label{fig:seq_cleaned}
+\end{figure}
+
+A dual-stream representation is constructed for each epoch. The temporal stream provides the raw EEG waveform as a 3,000-dimensional vector. The spectral stream provides a 34-dimensional feature vector computed from two complementary transforms. A Discrete Wavelet Transform using the Daubechies-4 basis at decomposition level 5 extracts energy, log-energy, Shannon entropy, and variance from each decomposition level, capturing transient morphological events such as sleep spindles and K-complexes. A Short-Time Fourier Transform with a 2-second Hann window extracts relative power for the delta, theta, alpha, beta, and gamma bands, together with spectral entropy, spectral edge frequency at 95 percent, and three power ratio features. The DWT captures transient morphology that the STFT blurs, while the STFT provides stable band-power estimates that the DWT decomposes unevenly across scales. Both transforms are necessary; neither alone is sufficient.
+
+For disorder detection, a subject-level clinical feature matrix is constructed by aggregating raw sensor signals and the output of the upstream sleep staging module. The 136-feature matrix covers seven groups: sleep architecture statistics derived from the predicted hypnogram, respiratory and apnea indices following AASM event detection criteria, oxygenation features from SpO2 analysis, cardiac and HRV features computed via Pan-Tompkins R-peak detection, periodic limb movement features from leg EMG, REM behaviour features from chin EMG, and EEG spectral power per band per stage. Preprocessing steps include median imputation for HRV zero-values arising from failed R-peak detection, exclusion of near-zero variance features, log transformation of EEG power features to normalise heavy-tailed distributions, and pruning of highly correlated feature pairs with absolute Pearson correlation exceeding 0.95.
+
+\subsubsection{Sleep Staging Architecture}
+
+The sleep staging module implements a temporal-spectral fusion transformer that processes both the raw EEG waveform and the pre-computed spectral feature vector for each epoch, models sequential dependencies across epochs using a transformer encoder, and classifies each epoch into one of five sleep stages.
+
+The temporal encoder employs an Adaptive Atrous Pyramid \cite{sun2025adg} adapted for one-dimensional physiological signals. The pyramid comprises four parallel convolutional branches operating with dilation rates of 1, 2, 4, and 8, enabling simultaneous receptive fields spanning approximately 10 ms, 20 ms, 40 ms, and 80 ms at 100 Hz sampling. This multi-scale processing is motivated by the multi-temporal nature of sleep EEG: brief K-complexes and sleep spindles demand fine temporal resolution, while slow-wave oscillations require broader receptive fields. Each convolutional branch incorporates a Squeeze-and-Excitation block \cite{hu2018senet} with reduction ratio 16, which performs global average pooling across the time dimension to compute per-channel statistics, then applies a two-layer bottleneck network with sigmoid activation to produce channel-wise attention weights. Branch outputs are aggregated through a learned adaptive gating mechanism with softmax-normalised weights, and an adaptive average pooling layer reduces the temporal dimension from 3,000 samples to a 128-dimensional embedding.
+
+The spectral encoder processes the 34-dimensional spectral feature vector through a shallow two-layer multilayer perceptron with intermediate dimension 128. Spectral features are already explicitly compressed representations of frequency content and do not require the deep hierarchical processing applied to raw waveforms.
+
+Three fusion strategies were evaluated: concatenation, gated fusion, and bidirectional cross-attention. Ablation experiments demonstrated that simple concatenation achieves the highest staging accuracy, outperforming cross-attention fusion by 0.8 percentage points. Concatenation retains both 128-dimensional representations without suppressing any modality-specific information, whereas gating and cross-attention introduce learned compression that may discard features relevant to specific sleep stages.
+
+The sequence model adopts a transformer encoder \cite{vaswani2017attention} with six layers, four attention heads, embedding dimension 128, feed-forward dimension 512, and sinusoidal positional encodings. The transformer models dependencies across a window of 256 epochs, effectively capturing the 90-minute ultradian sleep cycle. Global self-attention allows every epoch to attend directly to every other epoch in the window, avoiding the gradient attenuation that impairs recurrent architectures on long sequences. The output is passed to a linear classification head projecting from 128 to 5 dimensions, producing per-epoch logits over the five sleep stage classes.
+
+The model is trained using Focal Loss \cite{lin2017focal} with gamma equal to 2.0 and per-class alpha weights to address class imbalance. The AdamW optimiser \cite{loshchilov2017adamw} is used with a ReduceLROnPlateau learning rate scheduler. Training uses a window size of 256 epochs with no overlap, and DataParallel is used for multi-GPU training on Kaggle.
+
+Algorithm~\ref{alg:fusion} presents the pseudocode for the temporal-spectral fusion forward pass.
+
+\begin{algorithm}[h]
+\caption{Temporal-Spectral Fusion Forward Pass}\label{alg:fusion}
+\begin{algorithmic}[1]
+\State \textbf{Input:} $x_{\text{temp}} \in \mathbb{R}^{B \times T \times 3000}$, $x_{\text{spec}} \in \mathbb{R}^{B \times T \times 34}$
+\State \textbf{Output:} logits $\in \mathbb{R}^{B \times T \times 5}$
+\For{each dilation rate $d \in \{1, 2, 4, 8\}$}
+    \State $h_d \gets \text{Conv1d}(x_{\text{temp}}, \text{dilation}=d)$
+    \State $h_d \gets \text{SEBlock}(h_d)$
+\EndFor
+\State $h_{\text{temp}} \gets \text{AdaptivePool}(\text{GatedAggregate}([h_1, h_2, h_4, h_8]))$
+\State $h_{\text{spec}} \gets \text{MLP}(x_{\text{spec}})$
+\State $h_{\text{fused}} \gets \text{Linear}([h_{\text{temp}}; h_{\text{spec}}])$
+\State $h_{\text{ctx}} \gets \text{TransformerEncoder}(h_{\text{fused}} + \text{PosEnc})$
+\State \Return $\text{Linear}(h_{\text{ctx}})$
+\end{algorithmic}
+\end{algorithm}
+
+\subsubsection{Sleep Disorder Detection Pipeline}
+
+Disorder detection is formulated as multi-label binary classification for obstructive sleep apnea, insomnia, and restless legs syndrome. Independent predictions are made for each disorder per subject, recognising that the conditions frequently co-occur.
+
+A two-stage feature selection pipeline is applied within each cross-validation fold to prevent information leakage. In the first stage, a mutual information filter with a hard threshold of 0.002 removes features with negligible marginal association with the target, reducing from 136 to approximately 80 to 100 features per disorder. In the second stage, ElasticNet bootstrap stability selection \cite{meinshausen2010stability, zou2005elasticnet} is applied over 30 resampled iterations with L1 ratio 0.5 and retention threshold 30 percent. The ElasticNet penalty balances L1 sparsity with L2 ridge regularisation, which encourages correlated features within physiological groups to remain together. This group retention property is critical for insomnia, where no single dominant feature predicts the self-reported label but combinations of sleep continuity metrics collectively encode the disorder pattern.
+
+Five classifier architectures are evaluated. Logistic regression with ElasticNet regularisation provides a linear baseline. Random forests with 500 estimators provide non-linear feature interaction modelling. XGBoost \cite{chen2016xgboost} employs gradient-boosted trees with the ability to produce exact SHAP attributions through the TreeExplainer algorithm. Linear support vector machines provide a maximum-margin linear classifier. A multilayer perceptron implemented in PyTorch with architecture 256-128-64-1 captures non-linear feature interactions.
+
+All models use positive class weighting equal to the ratio of negative to positive samples. Classification thresholds are tuned independently per disorder using out-of-fold probabilities from training, selecting the threshold that maximises F1 score via precision-recall curve analysis. Model evaluation uses stratified 5-fold cross-validation.
+
+Algorithm~\ref{alg:elasticnet} presents the pseudocode for the ElasticNet bootstrap stability selection procedure.
+
+\begin{algorithm}[h]
+\caption{ElasticNet Bootstrap Stability Selection}\label{alg:elasticnet}
+\begin{algorithmic}[1]
+\State \textbf{Input:} $X_{\text{train}} \in \mathbb{R}^{n \times p}$, $y_{\text{train}} \in \{0,1\}^n$, $B=30$, $C=0.1$, $\lambda=0.5$, $\tau=0.30$
+\State \textbf{Output:} stable feature mask $\mathbf{m} \in \{0,1\}^p$
+\State $\text{counts} \gets \mathbf{0}^p$
+\For{$b = 1$ to $B$}
+    \State $(X_b, y_b) \gets \text{StratifiedResample}(X_{\text{train}}, y_{\text{train}})$
+    \State Fit ElasticNet logistic regression with penalty $C$, L1 ratio $\lambda$
+    \State $\text{counts} \mathrel{+}= \mathbf{1}[|\hat{\beta}| > 0]$
+\EndFor
+\State $\text{scores} \gets \text{counts} / B$
+\State $\mathbf{m} \gets \mathbf{1}[\text{scores} \geq \tau]$
+\State \Return $\mathbf{m}$
+\end{algorithmic}
+\end{algorithm}
+
+\subsubsection{Explainability Pipeline}
+
+The explainability pipeline produces interpretable outputs for two clinically distinct audiences.
+
+For clinicians, attention rollout accumulates transformer attention weights across all six layers to produce per-epoch influence scores. EpochGradCAM \cite{selvaraju2017gradcam} generates within-epoch signal localisation maps by computing the gradient of the class score with respect to the feature maps of the Adaptive Atrous Pyramid projection layer. Monte Carlo Dropout uncertainty quantification \cite{gal2016dropout} provides per-epoch predictive entropy estimates by performing 30 stochastic forward passes with dropout layers forced to training mode. Predictive entropy is computed as $H = -\sum_{k} \bar{p}_k \log \bar{p}_k$. Confidence is reported using a three-tier label: ratios below 0.45 of the maximum possible entropy are reported as High confidence, ratios between 0.45 and 0.72 as Medium confidence, and ratios above 0.72 as Low confidence. Epochs are flagged for manual review when the prediction disagrees with the ground truth or when entropy exceeds the 75th percentile of the recording's entropy distribution.
+
+For patients, predicted probabilities are converted into percentage risk scores and mapped to risk bands: low below 30 percent, moderate between 30 and 60 percent, and high above 60 percent. Feature importance is visualised using SHAP values \cite{lundberg2017shap} from the XGBoost TreeExplainer. Counterfactual explanations identify the minimum-perturbation feature change that crosses the classification threshold for each disorder, expressed in natural clinical language. A conversational AI interface uses the Groq Cloud LLM API with a system prompt that injects the patient's specific feature values and risk scores, grounds responses in the patient's actual results, and explicitly prohibits technical jargon.
+
+\subsection{Tools and Technologies}
+
+The research pipeline uses Python 3.10 with PyTorch 2.x for deep learning, scikit-learn 1.3 for classical machine learning, XGBoost 2.0 for gradient-boosted trees, SHAP 0.44 for feature attribution, MNE-Python 1.5 for EEG signal processing, and pandas and NumPy for data manipulation. Training is performed on Kaggle GPU instances using NVIDIA P100 and T4 GPUs. Large language model inference for the patient-facing explainability features uses the Groq Cloud API. Version control is managed with Git and development is conducted in Visual Studio Code. The MESA dataset is accessed under a one-year research data use agreement from the National Sleep Research Resource (NSRR), and the Sleep-EDF Expanded dataset is accessed from PhysioNet.
+
+\subsection{Expected Outcomes}
+
+The expected outcomes of this work are as follows. The temporal-spectral fusion model is expected to achieve macro F1 score above 0.78 on the Sleep-EDF Expanded benchmark, with particularly strong N1 detection due to the complementary information captured by the dual-stream architecture. The ElasticNet feature selection pipeline is expected to improve insomnia F1 by at least 30 percent relative to L1-only selection by preserving complementary sleep architecture feature groups. The explainability pipeline is expected to successfully identify uncertain predictions requiring clinician attention and generate personalised recommendations actionable by patients.
+
+\subsection{Advantages of the Proposed Work}
+
+The proposed system offers several advantages over existing approaches. The unified multi-disorder pipeline eliminates the need for separate systems for each condition, reducing deployment complexity and enabling the capture of co-morbidity patterns. The dual-stream temporal-spectral architecture captures complementary information from both the morphological and frequency domains of the EEG signal, outperforming single-modality approaches. The ElasticNet feature selection preserves complementary feature groups that L1-only methods discard, improving performance for disorders without single dominant predictors. The two-tier explainability system serves both clinical specialists and lay patients with appropriately tailored outputs, supporting clinical adoption and patient engagement simultaneously.
+
+\subsection{Limitations and Assumptions}
+
+The following limitations and assumptions apply to this work. All disorder labels are self-reported questionnaire diagnoses from the MESA dataset, encoding diagnostic history and treatment-seeking behaviour rather than objectively measured physiological severity. This label-feature alignment ceiling limits the achievable performance of models trained on PSG signal features for apnea and insomnia, regardless of model capacity. The system is trained and evaluated on two specific datasets and may not generalise to other PSG recording environments, electrode configurations, or demographic populations without retraining. The RLS detection performance remains insufficient for clinical deployment at the current stage, with the best F1 score of 0.182 indicating that aggregated periodic limb movement statistics do not adequately capture RLS pathology.

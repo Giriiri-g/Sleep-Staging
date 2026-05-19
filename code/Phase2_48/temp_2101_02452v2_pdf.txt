@@ -1,0 +1,89 @@
+1
+RobustSleepNet: Transfer learning for automated
+sleep staging at scale
+Antoine Guillot and Valentin Thorey
+Abstract—Sleep disorder diagnosis relies on the analysis of
+polysomnography (PSG) records. As a preliminary step of this
+examination, sleep stages are systematically determined. In prac-
+tice, sleep stage classiﬁcation relies on the visual inspection of 30-
+second epochs of polysomnography signals. Numerous automatic
+approaches have been developed to replace this tedious and
+expensive task. Although these methods demonstrated better
+performance than human sleep experts on speciﬁc datasets, they
+remain largely unused in sleep clinics. The main reason is that
+each sleep clinic uses a speciﬁc PSG montage that most automatic
+approaches cannot handle out-of-the-box. Moreover, even when
+the PSG montage is compatible, publications have shown that
+automatic approaches perform poorly on unseen data with
+different demographics. To address these issues, we introduce
+RobustSleepNet, a deep learning model for automatic sleep stage
+classiﬁcation able to handle arbitrary PSG montages. We trained
+and evaluated this model in a leave-one-out-dataset fashion on a
+large corpus of 8 heterogeneous sleep staging datasets to make
+it robust to demographic changes. When evaluated on an unseen
+dataset, RobustSleepNet reaches 97% of the F1 of a model
+explicitly trained on this dataset. Hence, RobustSleepNet unlocks
+the possibility to perform high-quality out-of-the-box automatic
+sleep staging with any clinical setup. We further show that
+ﬁnetuning RobustSleepNet, using a part of the unseen dataset,
+increases the F1 by 2% when compared to a model trained
+speciﬁcally for this dataset. Therefore, ﬁnetuning might be used
+to reach a state-of-the-art level of performance on a speciﬁc
+population.
+Index Terms—Automated Sleep Stage classiﬁcation, Deep
+Learning, Transfer Learning, EEG, PSG
+I. INTRODUCTION
+During sleep, the body alternates through different phys-
+iological states called sleep stages. The AASM (American
+Academy of Sleep Medicine) guidelines deﬁne ﬁve different
+sleep stages: wake, NREM1, NREM2, NREM3 (or deep
+sleep), and REM (rapid eye movement) [1]. Sleep stage classi-
+ﬁcation is a primary tool used systematically in the diagnosis
+of sleep disorders such as narcolepsy [2] or sleep apnea [3].
+Sleep stages are determined with the use of a polysomnogra-
+phy (PSG) device. It can monitor several physiological signals
+throughout the night, but the ones typically recorded are
+brain activity (electroencephalography [EEG]), muscle activity
+(electromyography [EMG]), eye movements (electrooculog-
+raphy [EOG]), cardiac activity (electrocardiography [ECG]),
+and breathing. In a clinical setup, sleep stage classiﬁcation is
+generally done manually by a trained sleep expert who visually
+analyses the recorded signals. The analysis is conducted on
+30-seconds epochs, where each epoch is associated with one
+A. Guillot and V. Thorey are with the Algorithm Team, Dreem, Paris
+of the ﬁve sleep stages according to the standards deﬁned by
+the AASM. The manual classiﬁcation is quite expensive, as
+it takes up to an hour to score a whole recording (which
+is around 1000 epochs or 8-hours long). The sleep scoring
+guidelines do not fully reﬂect the variability of patterns that
+exist among subjects. As a consequence, different scorers can
+interpret the same epoch differently. An analysis of nights
+scored by more than 2,500 scorers shows an average inter-
+rater agreement of 82.6% across sleep stages [4], the inter-
+rater agreement strongly depends on the dataset demographics
+and on the sleep center where the study is recorded. As a
+rule of thumb, a dataset with older subjects or subjects with
+sleep disorders presents lower inter-rater agreements [5] than
+a dataset composed of healthy subjects [6].
+The high cost and relatively important bias in manual
+sleep staging have raised an interest in developing automatic
+sleep staging systems. Recently, deep learning has successfully
+reached human-performances in automatic sleep staging, in a
+supervised learning context [7] [8] [5] [2] [9] [10]; despite
+this, automated sleep staging methods remain unused in most
+sleep clinics. We identiﬁed two important factors to explain
+why sleep clinics still rely on manual sleep staging. We will
+refer to these using the terms ”input-shape incompatibility”
+and ”accuracy-drop issue.”
+The input-shape incompatibility issue is practical. Each
+sleep clinic has a speciﬁc PSG montage that can differ
+according to the device used, the particularity of the targeted
+population, or speciﬁc requirements from a study. Automatic
+approaches can handle only a speciﬁc input shape
+they are
+trained on a speciﬁc dataset with a speciﬁc montage a different
+PSG montage will likely generate an incompatible input shape
+and thus the impossibility to compute an output for the model.
+Conversely, the accuracy-drop issue occurs when a PSG
+montage is compatible between two datasets. In that case, a
+model trained

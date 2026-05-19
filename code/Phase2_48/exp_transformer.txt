@@ -1,0 +1,141 @@
+arXiv:2105.11043v3  [cs.LG]  26 Jan 2022
+THIS ARTICLE HAS BEEN PUBLISHED IN IEEE TRANSACTIONS ON BIOMEDICAL ENGINEERING
+1
+SleepTransformer: Automatic Sleep Staging with
+Interpretability and Uncertainty Quantiﬁcation
+Huy Phan∗, Kaare Mikkelsen, Oliver Y. Ch´en, Philipp Koch, Alfred Mertins, and Maarten De Vos
+Abstract—Background: Black-box skepticism is one of the main
+hindrances impeding deep-learning-based automatic sleep scor-
+ing from being used in clinical environments. Methods: Towards
+interpretability, this work proposes a sequence-to-sequence sleep-
+staging model, namely SleepTransformer. It is based on the
+transformer backbone and offers interpretability of the model’s
+decisions at both the epoch and sequence level. We further
+propose a simple yet efﬁcient method to quantify uncertainty
+in the model’s decisions. The method, which is based on entropy,
+can serve as a metric for deferring low-conﬁdence epochs to a
+human expert for further inspection. Results: Making sense of
+the transformer’s self-attention scores for interpretability, at the
+epoch level, the attention scores are encoded as a heat map to
+highlight sleep-relevant features captured from the input EEG
+signal. At the sequence level, the attention scores are visualized as
+the inﬂuence of different neighboring epochs in an input sequence
+(i.e. the context) to recognition of a target epoch, mimicking
+the way manual scoring is done by human experts. Conclusion:
+Additionally, we demonstrate that SleepTransformer performs
+on par with existing methods on two databases of different sizes.
+Signiﬁcance: Equipped with interpretability and the ability of
+uncertainty quantiﬁcation, SleepTransformer holds promise for
+being integrated into clinical settings.
+Index
+Terms—Automatic
+sleep
+staging,
+transformer,
+in-
+terpretability, uncertainty estimation, deep neural network,
+sequence-to-sequence.
+I. INTRODUCTION
+Sleep deprivation is prevalent and sleep disorders affect
+millions of people worldwide [1], posing an huge burden on
+public health. Current practice of sleep diagnosis and assess-
+ment is still heavily dependent on human expertise. Machine
+intelligence, which is disrupting various application ﬁelds,
+holds huge potential for automating current sleep annotation.
+Although it is not the goal that machine intelligence will
+entirely replace human sleep experts [2]–[4], we envision it
+could work alongside and assist human experts to facilitate
+their jobs and scale up sleep assessment and diagnosis.
+Sleep staging, the ﬁrst and fundamental step in sleep diag-
+nosis and assessment, is a typical application where machine
+H. Phan is with the School of Electronic Engineering and Computer
+Science, Queen Mary University of London, London E1 4NS, UK and
+the Alan Turing Institute, London NW1 2DB, UK. K. Mikkelsen is with
+the Department of Electrical and Computer Engineering, Aarhus University,
+Aarhus 8200, Denmark. O. Y. Ch´en is with the School of Economics, Finance
+and Management, University of Bristol, Bristol BS8 1TU, UK. P. Koch
+and A. Mertins are with the Institute for Signal Processing, University of
+L¨ubeck, L¨ubeck 23562, Germany and with the German Research Center
+for Artiﬁcial Intelligence (DFKI), L¨ubeck 23562, Germany. M. De Vos is
+with the Department of Electrical Engineering and with the Department of
+Development and Regeneration, KU Leuven, 3001 Leuven, Belgium.
+∗Corresponding author: h.phan@qmul.ac.uk
+intelligence can excel. In practice, this task of assigning a
+sleep stage to a 30-second sleep epoch is still being done
+manually, following a predeﬁned set of rules, such as the
+American Academy of Sleep Medicine (AASM) guideline
+[5]. On average, a sleep expert needs to spend two hours
+to complete scoring an overnight polysomnography (PSG)
+recording [6], making manually handling millions of sleep
+recordings infeasible. Automating this labor-intensive and rou-
+tine process will free up a huge amount of time and efforts
+from sleep experts as a machine can complete the same task
+in a few seconds. Furthermore, automatic sleep scoring is
+indispensable when it comes to longitudinal sleep monitoring
+in home environments with novel mobile-EEG devices [7], [8].
+Signiﬁcant progress has been made towards automatic sleep
+staging in the last few years. The availability of large-scale
+public sleep databases with hundreds [9] to thousands of
+subjects [10], [11] has stimulated and enabled the exploration
+of deep learning paradigms in solving this problem [12]–[17].
+Early attempts tried to use vanilla deep network architectures,
+such as deep neural networks (DNNs) [18], convolutional
+neural networks (CNNs) [17], [19]–[22], and recurrent neural
+networks (RNNs) [23]. Replacing more conventional machine
+learning methods with these vanilla networks in simple one-
+to-one or many-to-one frameworks resulted in limited success,
+owing to the limitation of the short input context. Since the
+seminal work in [15], the sequence-to-sequence sleep staging
+approach has grown in popularity for the task. Using this
+framework, handling a long context of 20-30 consecutive
+PSG epochs simultaneously, various advanced architectures
+have been proposed, for example CNN+RNN [24], [25],
+hierarchical RNN [15], [26], and CNN+Transformer [27]. It
+further allows extensions from different angles, such as trans-
+fer learning [28]–[30], model personalization [31], [32], and
+multi-view learning [16]. These advances have signiﬁcantly
+pushed the performance of machine sleep scoring to be on
+par with human scoring [12], [15], [16], [26].
+Despite all this progress, we have not yet seen automatic
+sleep staging widely adopted clinically. Unofﬁcial commu-
+nications with leading sleep experts point to the scepticism
+of deep learning models being a black box, which is a
+common criticism when it comes to the application of artiﬁcial
+intelligence in healthcare and medicine [33]. We argue that
+two overarching obstacles need to be addressed for a machine
+scoring system to work alongside practitioners in an interactive
+and collaborative manner: (1) interpretability [34], [35] and (2)
+uncertainty quantiﬁcation [36]. Interpretability is the ability of
+a model to explain how its decision is made given a certain
+DOI: 10.1109/TBME.2022.3147187
+2
+THIS ARTICLE HAS BEEN PUBLISHED IN IEEE TRANSACTIONS ON BIOMEDICAL ENGINEERING
+input, to be understood by a human. Inspired by the way a
+sleep expert performs manual scoring [5], interpretability in
+automatic sleep scoring is reasonably about (but not limited
+to) what features the model learns from the input signal,
+whether these features are relevant to and underpin the sleep
+stages, and how the decision on a target epoch is made under
+the inﬂuence of its neighboring epochs. Interpretability is
+particularly important due to the fact that sleep stages are
+ambiguous and even different human experts tend to disagree
+at a certain extend [37], [38]. Also, due to this ambiguity,
+quantifying uncertainty in the model’s decisions is equally
+important. Simply put, we are in need of a simple and concrete
+metric, ideally a single number, for quantifying the model’s
+uncertainty. Using this metric, epochs that are scored with low
+conﬁdence by the model can be deferred to sleep experts for
+further inspection [39].
+In this work, we propose a sleep staging model, namely
+SleepTransformer, as a stepping stone towards addressing the
+two above-mentioned obstacles. SleepTransformer adheres to
+the sequence-to-sequence sleep staging framework [15], [28].
+However, different from most (if not indeed all) existing
+works, SleepTransformer is convolution- and recurrent-free.
+Instead, it relies on the transformer concept [40] as the
+backbone for both epoch- and sequence-level modelling. The
+transformer construction is solely based on a self-attention
+mechanism whose attention scores will be leveraged for the
+model’s interpretability at both the epoch and sequence level.
+On the one hand, the attention scores at the epoch level will
+be used as a heat m

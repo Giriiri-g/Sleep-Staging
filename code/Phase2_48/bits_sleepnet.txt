@@ -1,0 +1,149 @@
+3366
+IEEE JOURNAL OF BIOMEDICAL AND HEALTH INFORMATICS, VOL. 29, NO. 5, MAY 2025
+BiTS-SleepNet: An Attention-Based Two Stage
+Temporal-Spectral Fusion Model for Sleep
+Staging With Single-Channel EEG
+Zhaoyang Cong
+, Graduate Student Member, IEEE, Minghui Zhao
+, Hongxiang Gao
+, Meng Lou
+,
+Guowei Zheng
+, Ziyang Wang
+, Xingyao Wang, Chang Yan
+, Li Ling
+, Jianqing Li
+,
+and Chengyu Liu
+, Senior Member, IEEE
+Abstract—Automated sleep staging is crucial for assess-
+ing sleep quality and diagnosing sleep-related diseases.
+Single-channel EEG has attracted signiﬁcant attention due
+to its portability and accessibility. Most existing automated
+sleep staging methods often emphasize temporal informa-
+tion and neglect spectral information, the relationship be-
+tween sleep stage contextual features, and transition rules
+between sleep stages. To overcome these obstacles, this
+paper proposes an attention-based two stage temporal-
+spectral fusion model (BiTS-SleepNet). The BiTS-SleepNet
+stage 1 network consists of a dual-stream temporal-
+spectral feature extractor branch and a temporal-spectral
+feature fusion module based on the cross-attention mech-
+anism. These blocks are designed to autonomously ex-
+tract and integrate the temporal and spectral features of
+EEG signals, leveraging temporal-spectral fusion informa-
+tion to discriminate between different sleep stages. The
+BiTS-SleepNet stage 2 network includes a feature context
+learning module (FCLM) based on Bi-GRU and a transition
+rules learning module (TRLM) based on the Conditional
+Random Field (CRF). The FCLM optimizes preliminary sleep
+Received 2 July 2024; revised 28 November 2024; accepted 25 De-
+cember 2024. Date of publication 30 December 2024; date of current
+version 7 May 2025. This work was supported in part by the National
+Natural Science Foundation of China under Grant 62171123, Grant
+62211530112, Grant 62071241, and Grant 62101129, in part by the
+National Key Research and Development Program of China under Grant
+2023YFC3603600, and in part by the Natural Science Foundation of
+Jiangsu Province under Grant BK20192004. (Corresponding authors:
+Jianqing Li; Chengyu Liu.)
+Zhaoyang Cong, Minghui Zhao, Hongxiang Gao, Chang Yan, Li
+Ling, and Chengyu Liu are with the State Key Laboratory of Digi-
+tal Medical Engineering, School of Instrument Science and Engineer-
+ing, Southeast University, Nanjing 210096, China (e-mail: zhaoyang_co
+ng@seu.edu.cn; chengyu@seu.edu.cn).
+Meng Lou is with the Department of Computer Science, The Univer-
+sity of Hong Kong, Hong Kong, SAR, China.
+Guowei Zheng is with the School of Computer Science and Technol-
+ogy, Harbin Institute of Technology, Harbin 150006, China.
+Ziyang Wang is with the School of Management, University of Science
+and Technology of China, Hefei 230026, China.
+Xingyao Wang is with the Institute of High Performance Computing,
+Agency for Science, Technology and Research (A*STAR), Singapore
+138632.
+Jianqing Li is with the State Key Laboratory of Digital Medical En-
+gineering, School of Instrument Science and Engineering, Southeast
+University, Nanjing 210096, China, and also with the School of Biomed-
+ical Engineering and Informatics, Nanjing Medical University, Nanjing
+211166, China (e-mail: ljq@seu.edu.cn).
+Digital Object Identiﬁer 10.1109/JBHI.2024.3523908
+stage results from the stage 1 network by learning de-
+pendencies between features of multiple adjacent stages.
+The TRLM additionally employs transition rules to optimize
+overall outcomes. We evaluated the BiTS-SleepNet on three
+public datasets: Sleep-EDF-20, Sleep-EDF-78, and SHHS,
+achieving accuracies of 88.50%, 85.09%, and 87.01%, re-
+spectively. The experimental results demonstrate that BiTS-
+SleepNet achieves competitive performance in comparison
+to recently published methods. This highlights its promise
+for practical applications.
+Index
+Terms—Sleep
+staging,
+single-channel
+EEG,
+temporal-spectral feature fusion, two-stage model, feature
+context learning, conditional random ﬁeld.
+I. INTRODUCTION
+S
+LEEP constitutes approximately one-third of the human
+lifespan. Adequate quality sleep is essential for sustaining
+health and optimal functioning in humans. However, modern
+lifestyles and stresses have signiﬁcantly increased the preva-
+lence of sleep disorders. Common conditions include insomnia,
+periodic limb movement disorder, and sleep apnea syndrome [1].
+These sleep disorders not only seriously affect the quality of life,
+but are also closely associated with the onset and progression
+of a variety of chronic diseases, such as cardiovascular diseases,
+metabolic disorders and mental health problems [2]. Accurate
+sleep staging is important for analyzing sleep structure, identi-
+fying sleep disorders and evaluating treatment effects. However,
+it’s challenging to achieve accurate sleep staging due to the in-
+tricate nature of sleep architecture and individual variability [3].
+Sleep staging criteria serve as the foundation for dividing
+the sleep cycle into distinct stages, primarily based on the
+Rechtschaffen & Kales (R&K) criteria [4] and the American
+Academy of Sleep Medicine (AASM) criteria [5]. The R&K
+criteria classify sleep into six stages: wakefulness (W), rapid eye
+movement (REM), and non-REM stages S1, S2, S3, and S4 [6].
+In contrast, the AASM criteria combine S3 and S4 into a single
+stage, N3 [7], resulting in ﬁve stages: W, N1, N2, N3, and REM.
+Manual sleep staging, typically performed by trained experts,
+involves analyzing 30-second sleep segments to determine the
+corresponding stage. While this method is generally accurate
+and reliable, it remains cumbersome, labor-intensive, and highly
+subjective [8], [9].
+2168-2194 © 2024 IEEE. All rights reserved, including rights for text and data mining, and training of artiﬁcial intelligence and similar technologies.
+Personal use is permitted, but republication/redistribution requires IEEE permission. See https://www.ieee.org/publications/rights/index.html
+for more information.
+Authorized licensed use limited to: Amrita School Of Engineering - Kollam. Downloaded on January 25,2026 at 14:41:52 UTC from IEEE Xplore.  Restrictions apply. 
+CONG et al.: BiTS-SleepNet: AN ATTENTION-BASED TWO STAGE TEMPORAL-SPECTRAL FUSION MODEL FOR SLEEP STAGING
+3367
+Polysomnography (PSG) remains the gold standard for sleep
+staging in medical environments. It integrates multiple physio-
+logical signals, including electroencephalography (EEG), elec-
+trocardiography (ECG), electromyography (EMG), electroocu-
+lography (EOG), and respiratory signals [10]. By jointly an-
+alyzing these signals, PSG enables accurate classiﬁcation of
+sleep stages [9]. Despite its high accuracy, PSG is limited
+by the complexity and cost of its equipment, as well as its
+reliance on a controlled laboratory environment. Furthermore,
+the lack of portability and the time-intensive nature of signal
+acquisition and analysis impose signiﬁcant burdens on both
+patients and healthcare professionals. These limitations hinder
+the widespread application of PSG in large-scale sleep studies
+and routine sleep monitoring [11], [12].
+Single-channel EEG signals have garnered signiﬁcant interest
+due to their portability and accessibility. However, the challenge
+of limited information necessitates the effective utilization of
+available data. Sleep staging methods based on single-channel
+EEG signals are generally divided into two categories: the
+ﬁrst is feature engineering-based methods and the second is
+deep learning-based methods. Speciﬁcally, Feature engineering-
+based methods involve the extraction of handcrafted features
+and the application of traditional machine learning algorithms
+for classiﬁcation. For instance, Liu et al. [13] proposed a method
+based on multi-domain feature extraction and genetic algorithm
+optimization, using least squares support vector machines (LS-
+SVM) for classiﬁcation. Hassan et al. [14] proposed a method
+thatutilizestunableQ-factorwavelettransform(TQWT)decom-
+position, statistical feature extraction, and bootst

@@ -1,7 +1,7 @@
 ---
 name: "latex-research-writer"
 description: "Use this agent when writing or editing LaTeX documents for research papers, managing bibliography files, adding citations, or formatting academic content. Examples:\\n\\n<example>\\nContext: User has completed experiments and wants to write the results section.\\nuser: \"I need to write the results section for our sleep staging paper with the accuracy tables\"\\nassistant: \"I'll use the latex-research-writer agent to create the properly formatted results section with tables and citations\"\\n</example>\\n\\n<example>\\nContext: User needs to add references to the bibliography.\\nuser: \"Add these three papers to our bib file and cite them in the related work section\"\\nassistant: \"I'll use the latex-research-writer agent to update the bib file and add proper citations\"\\n</example>\\n\\n<example>\\nContext: User is starting a new research paper.\\nuser: \"Help me set up the LaTeX structure for our Phase 2 disorder classification paper\"\\nassistant: \"I'll use the latex-research-writer agent to create the document structure with proper preamble and sections\"\\n</example>"
-model: sonnet
+model: inherit
 color: pink
 memory: project
 ---

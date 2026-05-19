@@ -1,0 +1,90 @@
+Citation: Alattar, M.; Govind, A.;
+Mainali, S. Artificial Intelligence
+Models for the Automation of
+Standard Diagnostics in Sleep
+Medicine—A Systematic Review.
+Bioengineering 2024, 11, 206.
+https://doi.org/10.3390/
+bioengineering11030206
+Academic Editors: Agnese Sbrollini,
+Alessandro Mengarelli and
+Andrea Tigrini
+Received: 4 December 2023
+Revised: 31 January 2024
+Accepted: 9 February 2024
+Published: 22 February 2024
+Copyright: © 2024 by the authors.
+Licensee MDPI, Basel, Switzerland.
+This article is an open access article
+distributed
+under
+the
+terms
+and
+conditions of the Creative Commons
+Attribution (CC BY) license (https://
+creativecommons.org/licenses/by/
+4.0/).
+bioengineering
+Systematic Review
+Artificial Intelligence Models for the Automation of Standard
+Diagnostics in Sleep Medicine—A Systematic Review
+Maha Alattar 1, Alok Govind 2
+and Shraddha Mainali 3,*
+1
+Division of Adult Neurology, Sleep Medicine, Vascular Neurology, Department of Neurology,
+Virginia Commonwealth University, Richmond, VA 23284, USA
+2
+Department of Neurology, National Institute of Mental Health and Neurosciences, Bangalore 560029, India
+3
+Division of Vascular Neurology and Neurocritical Care, Department of Neurology,
+Virginia Commonwealth University, Richmond, VA 23284, USA
+*
+Correspondence: shraddha.mainali@vcuhealth.org
+Abstract: Sleep disorders, prevalent in the general population, present significant health challenges.
+The current diagnostic approach, based on a manual analysis of overnight polysomnograms (PSGs),
+is costly and time-consuming. Artificial intelligence has emerged as a promising tool in this context,
+offering a more accessible and personalized approach to diagnosis, particularly beneficial for under-
+served populations. This is a systematic review of AI-based models for sleep disorder diagnostics that
+were trained, validated, and tested on diverse clinical datasets. An extensive search of PubMed and
+IEEE databases yielded 2114 articles, but only 18 met our stringent selection criteria, underscoring the
+scarcity of thoroughly validated AI models in sleep medicine. The findings emphasize the necessity
+of a rigorous validation of AI models on multimodal clinical data, a step crucial for their integration
+into clinical practice. This would be in line with the American Academy of Sleep Medicine’s support
+of AI research.
+Keywords: artificial intelligence; sleep medicine; sleep disorders; deep learning; sleep and AI
+1. Introduction
+Sleep, an essential biological requirement fundamental to human health and wellbeing,
+is a natural physiological state that is also vulnerable to various diseases and disorders.
+A significant portion of the general population experiences sleep disturbances, leading
+to a diminished quality of life, increased health risks, and higher healthcare expenses [1].
+The National Sleep Foundation’s 2020 survey found that nearly half of Americans suf-
+fer from daytime sleepiness [2]. Additionally, between 35 and 50% of adults annually
+experience insomnia symptoms [3]. Sleep disorders, as classified by the International Clas-
+sification of Sleep Disorders, include a range of conditions such as insomnia, sleep-related
+breathing disorders, hypersomnolence, circadian rhythm disruptions, parasomnias, and
+movement disorders during sleep [4].
+The field of sleep medicine is rich in clinical data, with nearly one million polysomno-
+graphic tests (Figure 1) conducted each year in the U.S. for analysis [5]. These disorders
+present unique challenges to patients and healthcare providers, particularly due to the
+altered state of awareness during sleep. Advancements in technology, especially in artificial
+intelligence (AI), present an opportunity for sleep medicine to transform. AI can efficiently
+process and analyze vast amounts of digital health data from both inpatient and outpa-
+tient sources, enabling the development of predictive diagnostic and treatment models.
+AI tools are adept at cleaning data, classifying diseases, and identifying specific disease
+patterns, tasks beyond the scope of human biological intelligence. Given that each patient
+generates over 80 megabytes of clinical data annually, a number that is only increasing,
+manually reviewing each patient’s data within the limited time of clinical sessions is be-
+Bioengineering 2024, 11, 206. https://doi.org/10.3390/bioengineering11030206
+https://www.mdpi.com/journal/bioengineering
+Bioengineering 2024, 11, 206
+2 of 18
+coming increasingly challenging [6]. This growth in data underlines the need for advanced
+technological solutions in diagnosing and managing sleep disorders.
+ 
+Figure 1.
+Image depicts a polysomnography study setup with multimodal monitoring tools:
+EEG (Electroencephalogram)—Electrodes attached to the head for monitoring brain wave activ-
+ity; EOG/ECG (Electrooculogram/Electrocardiogram)—Equipment monitoring eye movements and
+heart activity; Oronasal Airflow Monitor—Device positioned near the nose and mouth to measure
+breathing; Chin EMG (Electrom

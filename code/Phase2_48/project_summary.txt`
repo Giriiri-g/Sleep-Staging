@@ -1,0 +1,16 @@
+PROJECT SUMMARY: EXPLAINABLE DEEP LEARNING FOR SLEEP DISORDER DETECTION
+
+Background
+Sleep disorders, including Obstructive Sleep Apnea, Insomnia, and Restless Legs Syndrome (RLS), are widespread health conditions that significantly impact quality of life, mental health, and cardiovascular wellness. The gold standard for diagnosis is Polysomnography (PSG), a comprehensive overnight study that records brain waves, oxygen levels, heart rate, and muscle activity. However, the process of interpreting this data known as sleep staging is labor intensive, requiring trained specialists to manually score hours of recordings into distinct sleep stages. This creates a bottleneck in healthcare and introduces potential human variability in diagnosis.
+
+Motivation
+While Artificial Intelligence has shown promise in automating sleep staging, most high-performing models operate as "black boxes," providing a diagnosis without explaining how they arrived at that conclusion. In a clinical setting, a prediction without justification is often insufficient for a physician to make a treatment decision. Furthermore, patients are rarely given a clear, understandable explanation of their results, leaving them disconnected from their own health data. There is a critical need for a system that bridges the gap between the raw power of deep learning and the necessity of clinical transparency.
+
+Requirement
+Modern healthcare requires "Explainable AI" (XAI) to ensure safety, trust, and accountability. For clinicians, the system must be able to pinpoint the exact physiological events in the EEG signal that triggered a disorder alert. For patients, the complexity of medical terms and AI probabilities must be translated into plain-English risk scores and actionable lifestyle insights. A truly effective sleep intelligence platform must therefore balance high diagnostic accuracy with a multi-layered communication strategy tailored to different end-users.
+
+Contribution
+This project introduces a comprehensive sleep intelligence system that integrates a state-of-the-art Temporal-Spectral Fusion model with a explainability pipeline tailored for clinicians and patients. The system processes both raw physiological signals and patient questionnaire data to detect multiple sleep disorders simultaneously. Its primary contribution is the transformation of complex model outputs into intuitive visualizations: clinicians receive high-resolution heatmaps of EEG activity and confidence scores, while patients receive a simplified dashboard featuring risk assessments and an AI-driven advisor for personalized lifestyle recommendations.
+
+Novelty
+The novelty of this approach lies in its commitment to human-centric explainability. Unlike traditional models that look at either raw signals or summarized statistics, this system fuses temporal waveforms with spectral frequencies to capture the full complexity of sleep architecture. Moreover, the project implements a unique feature selection process that identifies complementary groups of symptoms such as signal characteristics and questionnaires rather than isolated predictors, allowing for a more accurate detection of complex disorders. By separating the clinician view from the patient view, this project sets a new standard for how deep learning results are delivered in a medical context.

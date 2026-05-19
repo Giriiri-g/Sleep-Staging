@@ -1,0 +1,43 @@
+% Appendix: Alignment with UN Sustainable Development Goals
+% This chapter maps the research contributions of Project 48 to the 17 SDGs
+% adopted by the United Nations in the 2030 Agenda for Sustainable Development.
+
+This chapter documents the alignment of the research conducted in this project with the United Nations Sustainable Development Goals (SDGs), adopted in 2015 as part of the 2030 Agenda for Sustainable Development. The project addresses sleep disorder detection and explainable AI for clinical and patient use, with direct and indirect relevance to several SDGs as described below.
+
+\section*{Primary Alignments}
+
+\textbf{SDG 3 — Good Health and Well-Being.}
+This is the most direct alignment. SDG Target 3.4 calls for reducing premature mortality from non-communicable diseases and promoting mental health and well-being. Sleep disorders, including obstructive sleep apnea, insomnia, and restless legs syndrome, are strongly associated with cardiovascular disease, metabolic syndrome, depression, and cognitive decline. By developing an automated, explainable system for early detection of these disorders from polysomnography recordings, this project directly supports earlier diagnosis, reduced diagnostic burden on healthcare systems, and improved patient self-management. SDG Target 3.8, which calls for universal health coverage and access to quality healthcare services, is also addressed: the use of open datasets (MESA, Sleep-EDF), open-source machine learning frameworks, and cloud-based compute (Kaggle) lowers the barrier to deploying such systems in resource-constrained settings.
+
+\textbf{SDG 9 — Industry, Innovation and Infrastructure.}
+SDG Target 9.5 promotes scientific research and technological capabilities. This project contributes a novel temporal-spectral fusion transformer architecture, an ElasticNet bootstrap stability selection pipeline, and an integrated explainability framework combining GradCAM, attention rollout, and Monte Carlo Dropout uncertainty quantification. These are original research contributions that advance the state of the art in automated sleep analysis and explainable AI for biomedical applications.
+
+\textbf{SDG 10 — Reduced Inequalities.}
+Access to polysomnography diagnosis is highly unequal globally, concentrated in high-income countries with specialist sleep laboratories. SDG Target 10.2 calls for empowering and promoting the social, economic, and political inclusion of all. By building a system that can analyse PSG recordings automatically and explain results in plain language accessible to non-specialist users, this project contributes to reducing the diagnostic inequality between populations with and without access to trained sleep technologists.
+
+\section*{Secondary Alignments}
+
+\textbf{SDG 4 — Quality Education.}
+The explainability pipeline, which translates model predictions into interpretable clinical evidence and patient-facing risk communication, supports health literacy and informed decision-making. The open-source nature of the research pipeline and the use of publicly available datasets support reproducible science and educational access to state-of-the-art methods.
+
+\textbf{SDG 17 — Partnerships for the Goals.}
+This project relies on international research partnerships and open data infrastructure. The MESA Sleep Study dataset is provided by the National Sleep Research Resource (NSRR) under a research data use agreement. The Sleep-EDF Expanded dataset is maintained by PhysioNet. The use of Kaggle's shared GPU infrastructure and Groq Cloud's LLM inference API reflects the collaborative, open-access ecosystem that SDG 17 promotes for achieving the broader development agenda.
+
+\section*{Summary Table}
+
+\begin{table}[h]
+\centering
+\caption{Alignment of Project 48 with the UN Sustainable Development Goals.}
+\label{tab:sdg}
+\begin{tabular}{p{1.2cm}p{4.5cm}p{8cm}}
+\toprule
+SDG & Goal & Project Contribution \\
+\midrule
+SDG 3 & Good Health and Well-Being & Automated detection of apnea, insomnia, and RLS; explainable AI for clinical decision support and patient self-management \\
+SDG 9 & Industry, Innovation and Infrastructure & Novel temporal-spectral fusion architecture; ElasticNet stability selection; integrated GradCAM + MC-Dropout explainability pipeline \\
+SDG 10 & Reduced Inequalities & Automated PSG analysis reduces dependence on scarce specialist sleep technologists; plain-language patient explanations improve health equity \\
+SDG 4 & Quality Education & Open datasets, reproducible research pipeline, and interpretable outputs support health literacy and scientific education \\
+SDG 17 & Partnerships for the Goals & Relies on NSRR, PhysioNet, Kaggle, and Groq Cloud open infrastructure; promotes open science and international data sharing \\
+\bottomrule
+\end{tabular}
+\end{table}

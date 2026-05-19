@@ -1,0 +1,325 @@
+=== Cell 2 ===
+import torch
+from torch.utils.data import Dataset, DataLoader, Subset, random_split
+import torch.nn as nn
+import torch.nn.functional as F
+import math
+import random
+import time
+from sklearn.metrics import (
+    accuracy_score, f1_score, precision_score, recall_score,
+    roc_auc_score, average_precision_score,
+    cohen_kappa_score, confusion_matrix
+)
+import json
+from sklearn.model_selection import train_test_split
+---
+=== Cell 8 ===
+def set_seed(seed=42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+
+def compute_specificity(y_true, y_pred, num_classes=5):
+    cm = confusion_matrix(y_true, y_pred, labels=list(range(num_classes)))
+    specs = []
+    for i in range(num_classes):
+        tn = cm.sum() - (cm[i, :].sum() + cm[:, i].sum() - cm[i, i])
+        fp = cm[:, i].sum() - cm[i, i]
+        specs.append(tn / (tn + fp + 1e-8))
+    return float(np.mean(specs))
+
+
+def compute_metrics(y_true, y_pred, y_prob):
+    metrics = {
+        "accuracy": accuracy_score(y_true, y_pred),
+        "f1_weighted": f1_score(y_true, y_pred, average="weighted"),
+        "f1_macro": f1_score(y_true, y_pred, average="macro"),
+        "precision": precision_score(y_true, y_pred, average="weighted"),
+        "recall": recall_score(y_true, y_pred, average="weighted"),
+        "kappa": cohen_kappa_score(y_true, y_pred),
+        "specificity": compute_specificity(y_true, y_pred)
+    }
+    print("[METRICS] Computed basic metrics (accuracy, F1, precision, recall, kappa, specificity).")
+    try:
+        metrics["roc_auc"] = roc_auc_score(
+            y_true, y_prob, multi_class="ovr", average="weighted"
+        )
+        metrics["pr_auc"] = average_precision_score(
+            y_true, y_prob, average="weighted"
+        )
+    except ValueError:
+        metrics["roc_auc"] = None
+        metrics["pr_auc"] = None
+
+    return metrics
+---
+=== Cell 10 ===
+def evaluate_fusion(model, loader, device):
+    model.eval()
+    y_true, y_pred, y_prob = [], [], []
+    use_amp = device.type == 'cuda'
+
+    with torch.no_grad():
+        for x_temp, x_spec, y, padding_mask in loader:
+            x_temp       = x_temp.to(device)
+            x_spec       = x_spec.to(device)
+            y            = y.to(device)
+            padding_mask = padding_mask.to(device)
+
+            with torch.amp.autocast(device_type='cuda', enabled=use_amp):
+                logits, _, _ = model(x_temp, x_spec, padding_mask)  # unpack 3 outputs
+
+            probs = torch.softmax(logits, dim=-1)
+            preds = probs.argmax(dim=-1)
+            valid = ~padding_mask
+
+            y_true.extend(y[valid].cpu().numpy())
+            y_pred.extend(preds[valid].cpu().numpy())
+            y_prob.extend(probs[valid].cpu().numpy())
+
+    return compute_metrics(
+        np.array(y_true),
+        np.array(y_pred),
+        np.array(y_prob)
+    )
+---
+=== Cell 11 ===
+def train_model_fusion(train_dataset, val_dataset, device,
+                       fusion_type='cross_attn', epochs=150):
+
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=16,
+        shuffle=True,
+        num_workers=2,
+        collate_fn=fusion_collate_fn,
+        pin_memory=True,
+        persistent_workers=True
+    )
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=16,
+        shuffle=False,
+        num_workers=2,
+        collate_fn=fusion_collate_fn,
+        pin_memory=True,
+        persistent_workers=True
+    )
+
+    model = nn.DataParallel(
+        FusedSleepStagingModel(fusion_type=fusion_type)
+    ).to(device)
+
+    total_params     = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    logger(f"Fused model on {device} | fusion='{fusion_type}'")
+    logger(f"Total params: {total_params:,} | Trainable: {trainable_params:,}")
+    logger(f"Train chunks: {len(train_dataset):,} | Val chunks: {len(val_dataset):,}")
+
+    # ── Per-class alpha: inverse-frequency weights ───────────────────────────
+    class_counts  = torch.tensor([70154, 25175, 88983, 19454, 34184], dtype=torch.float)
+    class_weights = 1.0 / class_counts
+    class_weights = class_weights / class_weights.sum() * NUM_CLASSES   # normalise to sum=5
+    criterion = FocalLoss(alpha=class_weights, gamma=2.0).to(device)
+    AUX_WEIGHT = 0.3   # weight for each auxiliary stream loss
+
+    # ── AdamW + OneCycleLR ───────────────────────────────────────────────────
+    optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=1e-2)
+    scheduler = torch.optim.lr_scheduler.OneCycleLR(
+        optimizer,
+        max_lr=3e-4,
+        steps_per_epoch=len(train_loader),
+        epochs=epochs,
+        pct_start=0.05      # 5% warmup
+    )
+    scaler  = torch.amp.GradScaler()
+    best_f1 = -1
+
+    for epoch in range(epochs):
+        model.train()
+        total_loss = 0
+
+        for batch_idx, (x_temp, x_spec, y, padding_mask) in enumerate(train_loader):
+            x_temp       = x_temp.to(device)
+            x_spec       = x_spec.to(device)
+            y            = y.to(device)
+            padding_mask = padding_mask.to(device)
+
+            optimizer.zero_grad()
+
+            with torch.amp.autocast(device_type='cuda'):
+                logits, aux_temp, aux_spec = model(x_temp, x_spec, padding_mask)
+
+                y_flat        = y.view(-1)
+                loss_main     = criterion(logits.view(-1, NUM_CLASSES),    y_flat)
+                loss_aux_temp = criterion(aux_temp.view(-1, NUM_CLASSES),  y_flat)
+                loss_aux_spec = criterion(aux_spec.view(-1, NUM_CLASSES),  y_flat)
+
+                loss = loss_main + AUX_WEIGHT * loss_aux_temp + AUX_WEIGHT * loss_aux_spec
+
+            scaler.scale(loss).backward()
+            scaler.unscale_(optimizer)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            scaler.step(optimizer)
+            scaler.update()
+            scheduler.step()
+
+            if device.type == 'cuda' and batch_idx % 50 == 0:
+                mem_alloc    = torch.cuda.memory_allocated() / 1024**2
+                mem_reserved = torch.cuda.memory_reserved()  / 1024**2
+                print(f"  GPU | Alloc: {mem_alloc:.1f} MB | Reserved: {mem_reserved:.1f} MB")
+
+            total_loss += loss.item()
+
+        metrics = evaluate_fusion(model, val_loader, device)
+
+        log = {'epoch': epoch, 'train_loss': total_loss / len(train_loader), **metrics}
+        with open('/kaggle/working/training_metrics_fusion.jsonl', 'a') as f:
+            f.write(json.dumps(log) + '\n')
+
+        if metrics['f1_weighted'] > best_f1:
+            best_f1 = metrics['f1_weighted']
+            torch.save(model.state_dict(), '/kaggle/working/best_model_fusion.pt')
+
+        logger(
+            f"Epoch {epoch:3d} | Loss: {total_loss/len(train_loader):.4f} | "
+            f"F1: {metrics['f1_weighted']:.4f} | Acc: {metrics['accuracy']:.4f} | "
+            f"LR: {optimizer.param_groups[0]['lr']:.6f}"
+        )
+
+    logger("Training complete — best model saved to best_model_fusion.pt")
+---
+=== Cell 14 ===
+# ╔══════════════════════════════════════════════════════════════════════════╗
+# ║  REPLACE CELL 14 — inference + full evaluation                          ║
+# ║  Includes: confusion matrix, classification report, ROC, PR curves      ║
+# ╚══════════════════════════════════════════════════════════════════════════╝
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import (
+    classification_report, confusion_matrix,
+    roc_curve, auc,
+    precision_recall_curve, average_precision_score
+)
+from sklearn.preprocessing import label_binarize
+from pathlib import Path
+
+FUSION_TYPE = 'concat'       # must match what was used in training
+WINDOW_SIZE = 256
+CLASS_NAMES = ['Wake', 'N1', 'N2', 'N3', 'REM']
+NUM_CLASSES = 5
+COLORS      = plt.cm.Set2(np.linspace(0, 1, NUM_CLASSES))
+OUTPUT_DIR  = Path('/kaggle/working/evaluation_results')
+OUTPUT_DIR.mkdir(exist_ok=True)
+
+device   = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+csv_path = '/kaggle/working/output.csv'
+
+# ── Load dataset & model ────────────────────────────────────────────────────
+test_dataset = FusionSleepDataset(csv_path, window_size=WINDOW_SIZE, overlap=0)
+test_loader  = DataLoader(
+    test_dataset,
+    batch_size=16,
+    shuffle=False,
+    num_workers=2,
+    collate_fn=fusion_collate_fn,
+    pin_memory=True,
+    persistent_workers=True
+)
+print(f"Full dataset: {len(test_dataset):,} chunks from {len(test_dataset.df)} files")
+
+model = nn.DataParallel(FusedSleepStagingModel(fusion_type=FUSION_TYPE)).to(device)
+model.load_state_dict(
+    torch.load('/kaggle/working/best_model_fusion.pt', map_location=device)
+)
+model.eval()
+print("Best fusion model loaded!\n")
+
+# ── Collect predictions ─────────────────────────────────────────────────────
+print("Collecting predictions...")
+y_true_all, y_pred_all, y_prob_all = [], [], []
+
+with torch.no_grad():
+    for batch_idx, (x_temp, x_spec, y, padding_mask) in enumerate(test_loader):
+        x_temp, x_spec = x_temp.to(device), x_spec.to(device)
+        y, padding_mask = y.to(device), padding_mask.to(device)
+
+        with torch.amp.autocast(device_type='cuda', enabled=device.type == 'cuda'):
+            logits = model(x_temp, x_spec, padding_mask)[0]
+
+        probs = torch.softmax(logits, dim=-1)
+        preds = probs.argmax(dim=-1)
+        valid = ~padding_mask
+
+        y_true_all.extend(y[valid].cpu().numpy())
+        y_pred_all.extend(preds[valid].cpu().numpy())
+        y_prob_all.extend(probs[valid].cpu().numpy())
+
+        if batch_idx % 20 == 0:
+            print(f"  Batch {batch_idx}/{len(test_loader)}")
+
+y_true_all = np.array(y_true_all)
+y_pred_all = np.array(y_pred_all)
+y_prob_all = np.array(y_prob_all)
+y_true_bin = label_binarize(y_true_all, classes=list(range(NUM_CLASSES)))  # [N, 5]
+print(f"Predictions collected: {len(y_true_all):,} valid epochs\n")
+
+# ── [1] Classification Report ───────────────────────────────────────────────
+print("=" * 60)
+print("CLASSIFICATION REPORT")
+print("=" * 60)
+report = classification_report(y_true_all, y_pred_all, target_names=CLASS_NAMES, digits=4)
+print(report)
+with open(OUTPUT_DIR / 'classification_report.txt', 'w') as f:
+    f.write(report)
+
+# ── [2] Confusion Matrix ────────────────────────────────────────────────────
+cm      = confusion_matrix(y_true_all, y_pred_all)
+cm_norm = cm.astype('float') / cm.sum(axis=1, keepdims=True)
+
+fig, axes = plt.subplots(1, 2, figsize=(16, 6))
+sns.heatmap(cm,      annot=True, fmt='d',    cmap='Blues',
+            xticklabels=CLASS_NAMES, yticklabels=CLASS_NAMES, ax=axes[0])
+axes[0].set_title(f'Confusion Matrix — Counts [{FUSION_TYPE} fusion]', fontweight='bold')
+axes[0].set_xlabel('Predicted'); axes[0].set_ylabel('True')
+
+sns.heatmap(cm_norm, annot=True, fmt='.2%', cmap='Blues',
+            xticklabels=CLASS_NAMES, yticklabels=CLASS_NAMES, ax=axes[1])
+axes[1].set_title(f'Confusion Matrix — Normalised [{FUSION_TYPE} fusion]', fontweight='bold')
+axes[1].set_xlabel('Predicted'); axes[1].set_ylabel('True')
+
+plt.tight_layout()
+plt.savefig(OUTPUT_DIR / 'confusion_matrix.png', dpi=300, bbox_inches='tight')
+plt.show()
+print("✓ Saved confusion matrix")
+
+# ── [3] ROC Curves (one-vs-rest per class + micro-average) ─────────────────
+fpr, tpr, roc_auc = {}, {}, {}
+
+for i in range(NUM_CLASSES):
+    fpr[i], tpr[i], _ = roc_curve(y_true_bin[:, i], y_prob_all[:, i])
+    roc_auc[i] = auc(fpr[i], tpr[i])
+
+# Micro-average: flatten all classes together
+fpr['micro'], tpr['micro'], _ = roc_curve(y_true_bin.ravel(), y_prob_all.ravel())
+roc_auc['micro'] = auc(fpr['micro'], tpr['micro'])
+
+# Macro-average: interpolate each class ROC onto a common grid then average
+all_fpr = np.unique(np.concatenate([fpr[i] for i in range(NUM_CLASSES)]))
+mean_tpr = np.zeros_like(all_fpr)
+for i in range(NUM_CLASSES):
+    mean_tpr += np.interp(all_fpr, fpr[i], tpr[i])
+mean_tpr /= NUM_CLASSES
+fpr['macro'], tpr['macro'] = all_fpr, mean_tpr
+roc_auc['macro'] = auc(fpr['macro'], tpr['macro'])
+
+fig, ax = plt.subplots(figsize=(10, 8))
+
+for i, color in zip(range(
+---
